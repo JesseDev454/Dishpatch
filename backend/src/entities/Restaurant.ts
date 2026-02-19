@@ -10,6 +10,7 @@ import {
 import { User } from "./User";
 import { Category } from "./Category";
 import { Item } from "./Item";
+import { Order } from "./Order";
 
 @Entity({ name: "restaurants" })
 export class Restaurant {
@@ -43,4 +44,7 @@ export class Restaurant {
 
   @OneToMany(() => Item, (item) => item.restaurant)
   items!: Item[];
+
+  @OneToMany(() => Order, (order) => order.restaurant)
+  orders!: Order[];
 }

@@ -6,10 +6,12 @@ import {
   UpdateDateColumn,
   ManyToOne,
   JoinColumn,
-  Index
+  Index,
+  OneToMany
 } from "typeorm";
 import { Restaurant } from "./Restaurant";
 import { Category } from "./Category";
+import { OrderItem } from "./OrderItem";
 
 @Entity({ name: "items" })
 export class Item {
@@ -49,4 +51,8 @@ export class Item {
   @ManyToOne(() => Category, (category) => category.items, { onDelete: "CASCADE" })
   @JoinColumn({ name: "categoryId" })
   category!: Category;
+
+  // Retains linkage to purchased items while using snapshots on order lines.
+  @OneToMany(() => OrderItem, (orderItem) => orderItem.item)
+  orderItems!: OrderItem[];
 }

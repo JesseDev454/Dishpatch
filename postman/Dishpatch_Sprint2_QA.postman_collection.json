@@ -1,0 +1,721 @@
+{
+  "info": {
+    "_postman_id": "8d9f9f9f-1a2b-4c3d-8e7f-001122334455",
+    "name": "Dishpatch Sprint QA",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "description": "Manual QA flow for Dishpatch Sprint 1 + Sprint 2 APIs."
+  },
+  "item": [
+    {
+      "name": "Auth & Setup",
+      "item": [
+        {
+          "name": "Register Tenant A",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  "if (!pm.environment.get('runId')) {",
+                  "  const runId = Date.now().toString();",
+                  "  pm.environment.set('runId', runId);",
+                  "  pm.environment.set('tenantAEmail', `admin-a-${runId}@dishpatch.test`);",
+                  "  pm.environment.set('tenantBEmail', `admin-b-${runId}@dishpatch.test`);",
+                  "  pm.environment.set('tenantARestaurantName', `Tenant A ${runId}`);",
+                  "  pm.environment.set('tenantBRestaurantName', `Tenant B ${runId}`);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 201', function () { pm.response.to.have.status(201); });",
+                  "const body = pm.response.json();",
+                  "pm.environment.set('tenantAAccessToken', body.accessToken);",
+                  "pm.environment.set('tenantASlug', body.user.restaurant.slug);",
+                  "pm.environment.set('tenantARestaurantId', body.user.restaurant.id);",
+                  "pm.environment.set('tenantAUserId', body.user.id);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"restaurantName\": \"{{tenantARestaurantName}}\",\n  \"email\": \"{{tenantAEmail}}\",\n  \"password\": \"{{password}}\"\n}"
+            },
+            "url": "{{baseUrl}}/auth/register"
+          }
+        },
+        {
+          "name": "Register Tenant B",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 201', function () { pm.response.to.have.status(201); });",
+                  "const body = pm.response.json();",
+                  "pm.environment.set('tenantBAccessToken', body.accessToken);",
+                  "pm.environment.set('tenantBSlug', body.user.restaurant.slug);",
+                  "pm.environment.set('tenantBRestaurantId', body.user.restaurant.id);",
+                  "pm.environment.set('tenantBUserId', body.user.id);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"restaurantName\": \"{{tenantBRestaurantName}}\",\n  \"email\": \"{{tenantBEmail}}\",\n  \"password\": \"{{password}}\"\n}"
+            },
+            "url": "{{baseUrl}}/auth/register"
+          }
+        },
+        {
+          "name": "Login Tenant A",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', function () { pm.response.to.have.status(200); });",
+                  "const body = pm.response.json();",
+                  "pm.environment.set('tenantAAccessToken', body.accessToken);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{tenantAEmail}}\",\n  \"password\": \"{{password}}\"\n}"
+            },
+            "url": "{{baseUrl}}/auth/login"
+          }
+        },
+        {
+          "name": "Login Wrong Password (Expect 401)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 401', function () { pm.response.to.have.status(401); });"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{tenantAEmail}}\",\n  \"password\": \"WrongPassword\"\n}"
+            },
+            "url": "{{baseUrl}}/auth/login"
+          }
+        },
+        {
+          "name": "Protected Route Without Token (Expect 401)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 401', function () { pm.response.to.have.status(401); });"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/categories"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Tenant A CRUD",
+      "item": [
+        {
+          "name": "Create Category A",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 201', function () { pm.response.to.have.status(201); });",
+                  "const body = pm.response.json();",
+                  "pm.environment.set('tenantACategoryId', body.category.id);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{tenantAAccessToken}}", "type": "string" }] },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"name\": \"A Specials\",\n  \"sortOrder\": 1\n}" },
+            "url": "{{baseUrl}}/categories"
+          }
+        },
+        {
+          "name": "Create Available Item A",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 201', function () { pm.response.to.have.status(201); });",
+                  "const body = pm.response.json();",
+                  "pm.environment.set('tenantAItemId', body.item.id);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{tenantAAccessToken}}", "type": "string" }] },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"categoryId\": {{tenantACategoryId}},\n  \"name\": \"A Jollof\",\n  \"description\": \"Spicy\",\n  \"price\": 3200,\n  \"isAvailable\": true\n}"
+            },
+            "url": "{{baseUrl}}/items"
+          }
+        },
+        {
+          "name": "Create Unavailable Item A",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 201', function () { pm.response.to.have.status(201); });",
+                  "const body = pm.response.json();",
+                  "pm.environment.set('tenantAUnavailableItemId', body.item.id);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{tenantAAccessToken}}", "type": "string" }] },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"categoryId\": {{tenantACategoryId}},\n  \"name\": \"A Hidden Item\",\n  \"description\": \"Not available\",\n  \"price\": 2800,\n  \"isAvailable\": false\n}"
+            },
+            "url": "{{baseUrl}}/items"
+          }
+        },
+        {
+          "name": "List Categories A",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', function () { pm.response.to.have.status(200); });"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{tenantAAccessToken}}", "type": "string" }] },
+            "method": "GET",
+            "url": "{{baseUrl}}/categories"
+          }
+        },
+        {
+          "name": "List Items A",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', function () { pm.response.to.have.status(200); });"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{tenantAAccessToken}}", "type": "string" }] },
+            "method": "GET",
+            "url": "{{baseUrl}}/items"
+          }
+        },
+        {
+          "name": "Create Temp Category A",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 201', function () { pm.response.to.have.status(201); });",
+                  "pm.environment.set('tenantATempCategoryId', pm.response.json().category.id);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{tenantAAccessToken}}", "type": "string" }] },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"name\": \"Temp Category\",\n  \"sortOrder\": 5\n}" },
+            "url": "{{baseUrl}}/categories"
+          }
+        },
+        {
+          "name": "Update Temp Category A",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', function () { pm.response.to.have.status(200); });"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{tenantAAccessToken}}", "type": "string" }] },
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"name\": \"Updated Temp Category\"\n}" },
+            "url": "{{baseUrl}}/categories/{{tenantATempCategoryId}}"
+          }
+        },
+        {
+          "name": "Delete Temp Category A",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 204', function () { pm.response.to.have.status(204); });"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{tenantAAccessToken}}", "type": "string" }] },
+            "method": "DELETE",
+            "url": "{{baseUrl}}/categories/{{tenantATempCategoryId}}"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Tenant B Setup",
+      "item": [
+        {
+          "name": "Create Category B",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 201', function () { pm.response.to.have.status(201); });",
+                  "pm.environment.set('tenantBCategoryId', pm.response.json().category.id);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{tenantBAccessToken}}", "type": "string" }] },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"name\": \"B Category\",\n  \"sortOrder\": 1\n}" },
+            "url": "{{baseUrl}}/categories"
+          }
+        },
+        {
+          "name": "Create Item B",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 201', function () { pm.response.to.have.status(201); });",
+                  "pm.environment.set('tenantBItemId', pm.response.json().item.id);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{tenantBAccessToken}}", "type": "string" }] },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"categoryId\": {{tenantBCategoryId}},\n  \"name\": \"B Item\",\n  \"description\": \"Own item\",\n  \"price\": 1700,\n  \"isAvailable\": true\n}"
+            },
+            "url": "{{baseUrl}}/items"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Tenant Isolation",
+      "item": [
+        {
+          "name": "Tenant B Cannot See Tenant A Categories",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', function () { pm.response.to.have.status(200); });",
+                  "const categories = pm.response.json().categories || [];",
+                  "const found = categories.some(c => Number(c.id) === Number(pm.environment.get('tenantACategoryId')));",
+                  "pm.test('Tenant A category not visible to tenant B', function () { pm.expect(found).to.eql(false); });"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{tenantBAccessToken}}", "type": "string" }] },
+            "method": "GET",
+            "url": "{{baseUrl}}/categories"
+          }
+        },
+        {
+          "name": "Tenant B Cannot See Tenant A Items",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', function () { pm.response.to.have.status(200); });",
+                  "const items = pm.response.json().items || [];",
+                  "const found = items.some(i => Number(i.id) === Number(pm.environment.get('tenantAItemId')));",
+                  "pm.test('Tenant A item not visible to tenant B', function () { pm.expect(found).to.eql(false); });"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{tenantBAccessToken}}", "type": "string" }] },
+            "method": "GET",
+            "url": "{{baseUrl}}/items"
+          }
+        },
+        {
+          "name": "Tenant B Cannot Patch Tenant A Category",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 403/404', function () { pm.expect([403,404]).to.include(pm.response.code); });"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{tenantBAccessToken}}", "type": "string" }] },
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"name\": \"Hacked Name\"\n}" },
+            "url": "{{baseUrl}}/categories/{{tenantACategoryId}}"
+          }
+        },
+        {
+          "name": "Tenant B Cannot Delete Tenant A Category",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 403/404', function () { pm.expect([403,404]).to.include(pm.response.code); });"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{tenantBAccessToken}}", "type": "string" }] },
+            "method": "DELETE",
+            "url": "{{baseUrl}}/categories/{{tenantACategoryId}}"
+          }
+        },
+        {
+          "name": "Tenant B Cannot Create Item With Tenant A categoryId",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 400/403/404', function () { pm.expect([400,403,404]).to.include(pm.response.code); });"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{tenantBAccessToken}}", "type": "string" }] },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"categoryId\": {{tenantACategoryId}},\n  \"name\": \"Injected Item\",\n  \"description\": \"Should fail\",\n  \"price\": 1500,\n  \"isAvailable\": true\n}"
+            },
+            "url": "{{baseUrl}}/items"
+          }
+        },
+        {
+          "name": "Tenant B Cannot Update Own Item To Tenant A categoryId",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 400/403/404', function () { pm.expect([400,403,404]).to.include(pm.response.code); });"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{tenantBAccessToken}}", "type": "string" }] },
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"categoryId\": {{tenantACategoryId}}\n}" },
+            "url": "{{baseUrl}}/items/{{tenantBItemId}}"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Public Restaurant + Orders",
+      "item": [
+        {
+          "name": "Get Public Restaurant By Slug",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', function () { pm.response.to.have.status(200); });"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/public/restaurants/{{tenantASlug}}"
+          }
+        },
+        {
+          "name": "Get Public Menu (Only Available Items)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', function () { pm.response.to.have.status(200); });",
+                  "const categories = pm.response.json().categories || [];",
+                  "const allItems = categories.flatMap(c => c.items || []);",
+                  "const hasUnavailable = allItems.some(i => Number(i.id) === Number(pm.environment.get('tenantAUnavailableItemId')));",
+                  "pm.test('Unavailable item is hidden', function () { pm.expect(hasUnavailable).to.eql(false); });"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/public/restaurants/{{tenantASlug}}/menu"
+          }
+        },
+        {
+          "name": "Create Pickup Order (Success)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 201', function () { pm.response.to.have.status(201); });",
+                  "const body = pm.response.json();",
+                  "pm.environment.set('tenantAPickupOrderId', body.order.id);",
+                  "pm.test('Order status is pending payment', function () { pm.expect(body.order.status).to.eql('PENDING_PAYMENT'); });",
+                  "const calc = (body.order.items || []).reduce((sum, line) => sum + Number(line.lineTotal), 0).toFixed(2);",
+                  "pm.test('Total amount is calculated on backend', function () { pm.expect(body.order.totalAmount).to.eql(calc); });"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"PICKUP\",\n  \"customerName\": \"Postman Pickup User\",\n  \"customerPhone\": \"08030000000\",\n  \"deliveryAddress\": null,\n  \"items\": [\n    { \"itemId\": {{tenantAItemId}}, \"quantity\": 2 }\n  ]\n}"
+            },
+            "url": "{{baseUrl}}/public/restaurants/{{tenantASlug}}/orders"
+          }
+        },
+        {
+          "name": "Create Delivery Order (Success)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 201', function () { pm.response.to.have.status(201); });",
+                  "const body = pm.response.json();",
+                  "pm.environment.set('tenantADeliveryOrderId', body.order.id);",
+                  "pm.test('Order status is pending payment', function () { pm.expect(body.order.status).to.eql('PENDING_PAYMENT'); });"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"DELIVERY\",\n  \"customerName\": \"Postman Delivery User\",\n  \"customerPhone\": \"08040000000\",\n  \"deliveryAddress\": \"12 Marina Street, Lagos\",\n  \"items\": [\n    { \"itemId\": {{tenantAItemId}}, \"quantity\": 1 }\n  ]\n}"
+            },
+            "url": "{{baseUrl}}/public/restaurants/{{tenantASlug}}/orders"
+          }
+        },
+        {
+          "name": "Create Delivery Without Address (Expect 400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 400', function () { pm.response.to.have.status(400); });"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"DELIVERY\",\n  \"customerName\": \"No Address User\",\n  \"customerPhone\": \"08050000000\",\n  \"items\": [\n    { \"itemId\": {{tenantAItemId}}, \"quantity\": 1 }\n  ]\n}"
+            },
+            "url": "{{baseUrl}}/public/restaurants/{{tenantASlug}}/orders"
+          }
+        },
+        {
+          "name": "Create Order With Item Not Belonging To Restaurant (Expect 400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 400', function () { pm.response.to.have.status(400); });"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"PICKUP\",\n  \"customerName\": \"Cross Tenant Buyer\",\n  \"customerPhone\": \"08060000000\",\n  \"deliveryAddress\": null,\n  \"items\": [\n    { \"itemId\": {{tenantBItemId}}, \"quantity\": 1 }\n  ]\n}"
+            },
+            "url": "{{baseUrl}}/public/restaurants/{{tenantASlug}}/orders"
+          }
+        },
+        {
+          "name": "Create Order With Unavailable Item (Expect 400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 400', function () { pm.response.to.have.status(400); });"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"PICKUP\",\n  \"customerName\": \"Unavailable Item Buyer\",\n  \"customerPhone\": \"08070000000\",\n  \"deliveryAddress\": null,\n  \"items\": [\n    { \"itemId\": {{tenantAUnavailableItemId}}, \"quantity\": 1 }\n  ]\n}"
+            },
+            "url": "{{baseUrl}}/public/restaurants/{{tenantASlug}}/orders"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Dashboard Orders",
+      "item": [
+        {
+          "name": "Get Orders For Tenant A (Protected)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', function () { pm.response.to.have.status(200); });",
+                  "const orders = pm.response.json().orders || [];",
+                  "pm.test('Contains at least one order', function () { pm.expect(orders.length).to.be.above(0); });"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{tenantAAccessToken}}", "type": "string" }] },
+            "method": "GET",
+            "url": "{{baseUrl}}/orders"
+          }
+        }
+      ]
+    }
+  ]
+}

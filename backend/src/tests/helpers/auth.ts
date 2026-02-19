@@ -10,7 +10,7 @@ type RegisterInput = {
 export const registerAndGetToken = async (
   app: Express,
   input: RegisterInput
-): Promise<{ accessToken: string; user: { restaurant: { id: number } } }> => {
+): Promise<{ accessToken: string; user: { restaurant: { id: number; slug: string } } }> => {
   const response = await request(app).post("/auth/register").send(input);
   expect(response.status).toBe(201);
   expect(response.body.accessToken).toBeTruthy();

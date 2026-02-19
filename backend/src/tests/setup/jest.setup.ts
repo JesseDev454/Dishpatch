@@ -1,6 +1,6 @@
 import { AppDataSource } from "../../config/data-source";
 
-const appTables = ["items", "categories", "users", "restaurants"] as const;
+const appTables = ["order_items", "orders", "items", "categories", "users", "restaurants"] as const;
 
 const clearDatabase = async (): Promise<void> => {
   await AppDataSource.query("SET FOREIGN_KEY_CHECKS = 0");

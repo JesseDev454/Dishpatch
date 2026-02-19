@@ -1,5 +1,7 @@
 import { FormEvent, useMemo, useState } from "react";
 import { api } from "../lib/api";
+import { useToast } from "../context/ToastContext";
+import { getApiErrorMessage } from "../lib/errors";
 import { Category, Item } from "../types";
 
 type ItemManagerProps = {
@@ -25,6 +27,7 @@ const emptyItemForm: ItemFormState = {
 };
 
 export const ItemManager = ({ items, categories, onChange }: ItemManagerProps) => {
+  const { showToast } = useToast();
   const [form, setForm] = useState<ItemFormState>(emptyItemForm);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editingForm, setEditingForm] = useState<ItemFormState>(emptyItemForm);
@@ -51,8 +54,11 @@ export const ItemManager = ({ items, categories, onChange }: ItemManagerProps) =
       });
       setForm(emptyItemForm);
       await onChange();
-    } catch (err: any) {
-      setError(err?.response?.data?.message ?? "Failed to create item");
+      showToast("Item created.", "success");
+    } catch (error: unknown) {
+      const message = getApiErrorMessage(error, "Failed to create item");
+      setError(message);
+      showToast(message, "error");
     }
   };
 
@@ -79,8 +85,11 @@ export const ItemManager = ({ items, categories, onChange }: ItemManagerProps) =
       });
       setEditingId(null);
       await onChange();
-    } catch (err: any) {
-      setError(err?.response?.data?.message ?? "Failed to update item");
+      showToast("Item updated.", "success");
+    } catch (error: unknown) {
+      const message = getApiErrorMessage(error, "Failed to update item");
+      setError(message);
+      showToast(message, "error");
     }
   };
 
@@ -89,8 +98,11 @@ export const ItemManager = ({ items, categories, onChange }: ItemManagerProps) =
     try {
       await api.delete(`/items/${id}`);
       await onChange();
-    } catch (err: any) {
-      setError(err?.response?.data?.message ?? "Failed to delete item");
+      showToast("Item deleted.", "success");
+    } catch (error: unknown) {
+      const message = getApiErrorMessage(error, "Failed to delete item");
+      setError(message);
+      showToast(message, "error");
     }
   };
 
@@ -99,8 +111,11 @@ export const ItemManager = ({ items, categories, onChange }: ItemManagerProps) =
     try {
       await api.patch(`/items/${item.id}`, { isAvailable: !item.isAvailable });
       await onChange();
-    } catch (err: any) {
-      setError(err?.response?.data?.message ?? "Failed to update availability");
+      showToast(`Item marked as ${item.isAvailable ? "unavailable" : "available"}.`, "success");
+    } catch (error: unknown) {
+      const message = getApiErrorMessage(error, "Failed to update availability");
+      setError(message);
+      showToast(message, "error");
     }
   };
 
@@ -108,38 +123,50 @@ export const ItemManager = ({ items, categories, onChange }: ItemManagerProps) =
     <section className="panel">
       <h3>Items</h3>
       <form className="item-form" onSubmit={createItem}>
-        <select
-          required
-          value={form.categoryId}
-          onChange={(event) => setForm((prev) => ({ ...prev, categoryId: event.target.value }))}
-        >
-          <option value="">Select category</option>
-          {categories.map((category) => (
-            <option key={category.id} value={category.id}>
-              {category.name}
-            </option>
-          ))}
-        </select>
-        <input
-          required
-          value={form.name}
-          onChange={(event) => setForm((prev) => ({ ...prev, name: event.target.value }))}
-          placeholder="Item name"
-        />
-        <input
-          value={form.description}
-          onChange={(event) => setForm((prev) => ({ ...prev, description: event.target.value }))}
-          placeholder="Description (optional)"
-        />
-        <input
-          required
-          type="number"
-          step="0.01"
-          min="0"
-          value={form.price}
-          onChange={(event) => setForm((prev) => ({ ...prev, price: event.target.value }))}
-          placeholder="Price"
-        />
+        <label>
+          Category
+          <select
+            required
+            value={form.categoryId}
+            onChange={(event) => setForm((prev) => ({ ...prev, categoryId: event.target.value }))}
+          >
+            <option value="">Select category</option>
+            {categories.map((category) => (
+              <option key={category.id} value={category.id}>
+                {category.name}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label>
+          Item name
+          <input
+            required
+            value={form.name}
+            onChange={(event) => setForm((prev) => ({ ...prev, name: event.target.value }))}
+            placeholder="e.g. Jollof Rice + Chicken"
+          />
+        </label>
+        <label>
+          Description (optional)
+          <input
+            value={form.description}
+            onChange={(event) => setForm((prev) => ({ ...prev, description: event.target.value }))}
+            placeholder="Short details"
+          />
+        </label>
+        <label>
+          Price (NGN)
+          <input
+            required
+            type="number"
+            step="0.01"
+            min="0"
+            value={form.price}
+            onChange={(event) => setForm((prev) => ({ ...prev, price: event.target.value }))}
+            placeholder="0.00"
+          />
+        </label>
         <label className="check-row">
           <input
             type="checkbox"
@@ -175,31 +202,43 @@ export const ItemManager = ({ items, categories, onChange }: ItemManagerProps) =
           <div key={item.id} className="list-row">
             {editingId === item.id ? (
               <div className="edit-grid">
-                <select
-                  value={editingForm.categoryId}
-                  onChange={(event) => setEditingForm((prev) => ({ ...prev, categoryId: event.target.value }))}
-                >
-                  {categories.map((category) => (
-                    <option key={category.id} value={category.id}>
-                      {category.name}
-                    </option>
-                  ))}
-                </select>
-                <input
-                  value={editingForm.name}
-                  onChange={(event) => setEditingForm((prev) => ({ ...prev, name: event.target.value }))}
-                />
-                <input
-                  value={editingForm.description}
-                  onChange={(event) => setEditingForm((prev) => ({ ...prev, description: event.target.value }))}
-                />
-                <input
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  value={editingForm.price}
-                  onChange={(event) => setEditingForm((prev) => ({ ...prev, price: event.target.value }))}
-                />
+                <label>
+                  Category
+                  <select
+                    value={editingForm.categoryId}
+                    onChange={(event) => setEditingForm((prev) => ({ ...prev, categoryId: event.target.value }))}
+                  >
+                    {categories.map((category) => (
+                      <option key={category.id} value={category.id}>
+                        {category.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label>
+                  Item name
+                  <input
+                    value={editingForm.name}
+                    onChange={(event) => setEditingForm((prev) => ({ ...prev, name: event.target.value }))}
+                  />
+                </label>
+                <label>
+                  Description
+                  <input
+                    value={editingForm.description}
+                    onChange={(event) => setEditingForm((prev) => ({ ...prev, description: event.target.value }))}
+                  />
+                </label>
+                <label>
+                  Price (NGN)
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={editingForm.price}
+                    onChange={(event) => setEditingForm((prev) => ({ ...prev, price: event.target.value }))}
+                  />
+                </label>
                 <label className="check-row">
                   <input
                     type="checkbox"
@@ -211,8 +250,10 @@ export const ItemManager = ({ items, categories, onChange }: ItemManagerProps) =
                   Available
                 </label>
                 <div className="actions">
-                  <button onClick={() => void saveEdit(item.id)}>Save</button>
-                  <button className="ghost" onClick={() => setEditingId(null)}>
+                  <button type="button" onClick={() => void saveEdit(item.id)}>
+                    Save
+                  </button>
+                  <button type="button" className="ghost" onClick={() => setEditingId(null)}>
                     Cancel
                   </button>
                 </div>
@@ -222,17 +263,17 @@ export const ItemManager = ({ items, categories, onChange }: ItemManagerProps) =
                 <div>
                   <strong>{item.name}</strong>
                   <p className="muted">
-                    ₦{Number(item.price).toLocaleString()} | {item.isAvailable ? "Available" : "Unavailable"}
+                    NGN {Number(item.price).toLocaleString()} | {item.isAvailable ? "Available" : "Unavailable"}
                   </p>
                 </div>
                 <div className="actions">
-                  <button className="ghost" onClick={() => void toggleAvailability(item)}>
+                  <button type="button" className="ghost" onClick={() => void toggleAvailability(item)}>
                     {item.isAvailable ? "Set Unavailable" : "Set Available"}
                   </button>
-                  <button className="ghost" onClick={() => startEdit(item)}>
+                  <button type="button" className="ghost" onClick={() => startEdit(item)}>
                     Edit
                   </button>
-                  <button className="danger" onClick={() => void deleteItem(item.id)}>
+                  <button type="button" className="danger" onClick={() => void deleteItem(item.id)}>
                     Delete
                   </button>
                 </div>

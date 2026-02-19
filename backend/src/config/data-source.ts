@@ -4,6 +4,7 @@ import { Restaurant } from "../entities/Restaurant";
 import { User } from "../entities/User";
 import { Category } from "../entities/Category";
 import { Item } from "../entities/Item";
+import { InitSprint11708700000000 } from "../migrations/1708700000000-InitSprint1";
 
 export const AppDataSource = new DataSource({
   type: "mysql",
@@ -13,7 +14,7 @@ export const AppDataSource = new DataSource({
   password: env.db.password,
   database: env.db.database,
   entities: [Restaurant, User, Category, Item],
-  migrations: ["src/migrations/*.ts", "dist/migrations/*.js"],
+  migrations: [InitSprint11708700000000],
   synchronize: false,
   logging: false
 });

@@ -2,10 +2,13 @@ import { FormEvent, useState } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
 import { AuthShell } from "../components/AuthShell";
 import { useAuth } from "../context/AuthContext";
+import { useToast } from "../context/ToastContext";
+import { getApiErrorMessage } from "../lib/errors";
 
 export const LoginPage = () => {
   const navigate = useNavigate();
   const { login, user, loading } = useAuth();
+  const { showToast } = useToast();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -21,9 +24,12 @@ export const LoginPage = () => {
     setSubmitting(true);
     try {
       await login({ email, password });
+      showToast("Login successful.", "success");
       navigate("/dashboard", { replace: true });
-    } catch (err: any) {
-      setError(err?.response?.data?.message ?? "Failed to login");
+    } catch (error: unknown) {
+      const message = getApiErrorMessage(error, "Failed to login");
+      setError(message);
+      showToast(message, "error");
     } finally {
       setSubmitting(false);
     }

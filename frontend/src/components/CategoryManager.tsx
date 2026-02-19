@@ -1,5 +1,7 @@
 import { FormEvent, useState } from "react";
 import { api } from "../lib/api";
+import { useToast } from "../context/ToastContext";
+import { getApiErrorMessage } from "../lib/errors";
 import { Category } from "../types";
 
 type CategoryManagerProps = {
@@ -8,6 +10,7 @@ type CategoryManagerProps = {
 };
 
 export const CategoryManager = ({ categories, onChange }: CategoryManagerProps) => {
+  const { showToast } = useToast();
   const [name, setName] = useState("");
   const [sortOrder, setSortOrder] = useState("0");
   const [editingId, setEditingId] = useState<number | null>(null);
@@ -23,8 +26,11 @@ export const CategoryManager = ({ categories, onChange }: CategoryManagerProps) 
       setName("");
       setSortOrder("0");
       await onChange();
-    } catch (err: any) {
-      setError(err?.response?.data?.message ?? "Failed to create category");
+      showToast("Category created.", "success");
+    } catch (error: unknown) {
+      const message = getApiErrorMessage(error, "Failed to create category");
+      setError(message);
+      showToast(message, "error");
     }
   };
 
@@ -40,8 +46,11 @@ export const CategoryManager = ({ categories, onChange }: CategoryManagerProps) 
       await api.patch(`/categories/${id}`, { name: editName, sortOrder: Number(editSortOrder) });
       setEditingId(null);
       await onChange();
-    } catch (err: any) {
-      setError(err?.response?.data?.message ?? "Failed to update category");
+      showToast("Category updated.", "success");
+    } catch (error: unknown) {
+      const message = getApiErrorMessage(error, "Failed to update category");
+      setError(message);
+      showToast(message, "error");
     }
   };
 
@@ -50,8 +59,11 @@ export const CategoryManager = ({ categories, onChange }: CategoryManagerProps) 
     try {
       await api.delete(`/categories/${id}`);
       await onChange();
-    } catch (err: any) {
-      setError(err?.response?.data?.message ?? "Failed to delete category");
+      showToast("Category deleted.", "success");
+    } catch (error: unknown) {
+      const message = getApiErrorMessage(error, "Failed to delete category");
+      setError(message);
+      showToast(message, "error");
     }
   };
 
@@ -59,13 +71,24 @@ export const CategoryManager = ({ categories, onChange }: CategoryManagerProps) 
     <section className="panel">
       <h3>Categories</h3>
       <form className="inline-form" onSubmit={createCategory}>
-        <input required value={name} onChange={(event) => setName(event.target.value)} placeholder="Category name" />
-        <input
-          type="number"
-          value={sortOrder}
-          onChange={(event) => setSortOrder(event.target.value)}
-          placeholder="Sort"
-        />
+        <label>
+          Category name
+          <input
+            required
+            value={name}
+            onChange={(event) => setName(event.target.value)}
+            placeholder="e.g. Rice & Sides"
+          />
+        </label>
+        <label>
+          Sort order
+          <input
+            type="number"
+            value={sortOrder}
+            onChange={(event) => setSortOrder(event.target.value)}
+            placeholder="0"
+          />
+        </label>
         <button type="submit">Add</button>
       </form>
       {error ? <p className="error-text">{error}</p> : null}
@@ -81,8 +104,10 @@ export const CategoryManager = ({ categories, onChange }: CategoryManagerProps) 
                   value={editSortOrder}
                   onChange={(event) => setEditSortOrder(event.target.value)}
                 />
-                <button onClick={() => void saveEdit(category.id)}>Save</button>
-                <button className="ghost" onClick={() => setEditingId(null)}>
+                <button type="button" onClick={() => void saveEdit(category.id)}>
+                  Save
+                </button>
+                <button type="button" className="ghost" onClick={() => setEditingId(null)}>
                   Cancel
                 </button>
               </>
@@ -93,10 +118,10 @@ export const CategoryManager = ({ categories, onChange }: CategoryManagerProps) 
                   <p className="muted">Sort: {category.sortOrder}</p>
                 </div>
                 <div className="actions">
-                  <button className="ghost" onClick={() => startEdit(category)}>
+                  <button type="button" className="ghost" onClick={() => startEdit(category)}>
                     Edit
                   </button>
-                  <button className="danger" onClick={() => void deleteCategory(category.id)}>
+                  <button type="button" className="danger" onClick={() => void deleteCategory(category.id)}>
                     Delete
                   </button>
                 </div>

@@ -2,11 +2,14 @@ import { useEffect, useState } from "react";
 import { CategoryManager } from "../components/CategoryManager";
 import { ItemManager } from "../components/ItemManager";
 import { useAuth } from "../context/AuthContext";
+import { useToast } from "../context/ToastContext";
+import { getApiErrorMessage, getApiStatus } from "../lib/errors";
 import { api, setAccessToken } from "../lib/api";
 import { Category, Item } from "../types";
 
 export const DashboardPage = () => {
   const { user, logout } = useAuth();
+  const { showToast } = useToast();
   const [categories, setCategories] = useState<Category[]>([]);
   const [items, setItems] = useState<Item[]>([]);
   const [loading, setLoading] = useState(true);
@@ -33,8 +36,8 @@ export const DashboardPage = () => {
       setError(null);
       try {
         await refreshAll();
-      } catch (err: any) {
-        if (err?.response?.status === 401) {
+      } catch (error: unknown) {
+        if (getApiStatus(error) === 401) {
           try {
             const refreshRes = await api.post<{ accessToken: string }>("/auth/refresh");
             setAccessToken(refreshRes.data.accessToken);
@@ -43,7 +46,9 @@ export const DashboardPage = () => {
             await logout();
           }
         } else {
-          setError(err?.response?.data?.message ?? "Failed to load dashboard data");
+          const message = getApiErrorMessage(error, "Failed to load dashboard data");
+          setError(message);
+          showToast(message, "error");
         }
       } finally {
         setLoading(false);
@@ -64,7 +69,13 @@ export const DashboardPage = () => {
           <h1>Dishpatch</h1>
           <p className="muted">{user?.restaurant.name}</p>
         </div>
-        <button className="ghost" onClick={() => void logout()}>
+        <button
+          className="ghost"
+          onClick={() => {
+            void logout();
+            showToast("Logged out successfully.", "info");
+          }}
+        >
           Logout
         </button>
       </header>

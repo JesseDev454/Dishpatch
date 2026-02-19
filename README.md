@@ -7,6 +7,7 @@ Sprint 1 delivers:
 - Protected dashboard
 - Tenant-scoped category CRUD
 - Tenant-scoped item CRUD with availability toggle
+- Clear inline errors and success/error toast alerts in UI
 
 ## Tech Stack
 - Backend: Node.js, Express, TypeORM, MySQL
@@ -21,6 +22,50 @@ Sprint 1 delivers:
 - Node.js 20+
 - npm 10+
 - MySQL 8+
+
+## Quick Start (Run Both Apps From Root)
+1. From project root:
+   ```bash
+   npm install
+   npm run install:all
+   npm run dev
+   ```
+   `npm run dev` auto-creates `backend/.env` from `backend/.env.example` if missing.
+2. Backend runs on `http://localhost:4000`
+3. Frontend runs on `http://localhost:5173`
+
+## Testing
+### Backend (Jest + Supertest integration)
+1. Copy backend test env template:
+   ```bash
+   # macOS/Linux
+   cp backend/.env.test.example backend/.env.test
+   # Windows PowerShell
+   Copy-Item backend/.env.test.example backend/.env.test
+   ```
+2. Ensure MySQL test server is available (default test config: `localhost:3307`).
+3. Run backend tests:
+   ```bash
+   npm run test:backend
+   ```
+
+Notes:
+- Tests run with `NODE_ENV=test`.
+- Test DB defaults to `dishpatch_test` (never the dev DB).
+- Schema is created automatically before tests by running TypeORM migrations in Jest global setup.
+- Each test starts from a clean DB state (tables truncated in FK-safe order).
+- DB config supports both `DB_USER` and `DB_USERNAME`.
+
+### Frontend
+Current frontend test command runs TypeScript checks:
+```bash
+npm run test:frontend
+```
+
+### Run Everything
+```bash
+npm test
+```
 
 ## Backend Setup
 1. Go to backend:
@@ -78,6 +123,7 @@ Set in `backend/.env`:
 - `DB_HOST`
 - `DB_PORT`
 - `DB_USER`
+- `DB_USERNAME` (optional alternative to `DB_USER`)
 - `DB_PASSWORD`
 - `DB_NAME`
 - `JWT_ACCESS_SECRET`
@@ -112,7 +158,7 @@ Set in `backend/.env`:
 - Item creation/update validates category ownership by restaurant.
 - Cross-tenant reads/writes are blocked by backend checks.
 
-## Manual Test Checklist
+## Manual QA Checklist (Sprint 1)
 1. Register a new restaurant from `/register`.
 2. Confirm redirect to dashboard after successful registration.
 3. Refresh dashboard page and confirm session remains authenticated.
@@ -129,6 +175,8 @@ Set in `backend/.env`:
 14. Attempt login with wrong password and verify `401`.
 15. Attempt register with invalid email or short password and verify validation error.
 16. (Tenant isolation) Create two restaurants and verify one cannot read/update/delete the other's categories/items.
+17. Verify Restaurant A categories/items are never visible while logged in as Restaurant B.
+18. Verify cross-tenant PATCH/DELETE requests fail (404/403) and do not mutate data.
 
 ## Notes
 - Passwords are hashed with `bcryptjs`.

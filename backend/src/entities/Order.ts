@@ -7,10 +7,12 @@ import {
   ManyToOne,
   JoinColumn,
   OneToMany,
-  Index
+  Index,
+  OneToOne
 } from "typeorm";
 import { Restaurant } from "./Restaurant";
 import { OrderItem } from "./OrderItem";
+import { Payment } from "./Payment";
 
 export type OrderStatus =
   | "PENDING_PAYMENT"
@@ -58,6 +60,9 @@ export class Order {
   @Column({ type: "varchar", length: 40 })
   customerPhone!: string;
 
+  @Column({ type: "varchar", length: 190, nullable: true })
+  customerEmail!: string | null;
+
   @Column({ type: "varchar", length: 255, nullable: true })
   deliveryAddress!: string | null;
 
@@ -76,4 +81,7 @@ export class Order {
 
   @OneToMany(() => OrderItem, (orderItem) => orderItem.order)
   orderItems!: OrderItem[];
+
+  @OneToOne(() => Payment, (payment) => payment.order)
+  payment!: Payment;
 }

@@ -6,6 +6,9 @@ import { Category } from "../entities/Category";
 import { Item } from "../entities/Item";
 import { Order } from "../entities/Order";
 import { OrderItem } from "../entities/OrderItem";
+import { PaymentService } from "../services/payment.service";
+import { PaystackService } from "../services/paystack.service";
+import { env } from "../config/env";
 import { HttpError } from "../middleware/error-handler";
 
 const router = Router();
@@ -14,6 +17,7 @@ const createOrderSchema = z.object({
   type: z.enum(["DELIVERY", "PICKUP"]),
   customerName: z.string().trim().min(1, "customerName is required"),
   customerPhone: z.string().trim().min(1, "customerPhone is required"),
+  customerEmail: z.string().trim().email().optional().nullable(),
   deliveryAddress: z.string().trim().optional().nullable(),
   items: z
     .array(
@@ -152,6 +156,7 @@ router.post("/restaurants/:slug/orders", async (req, res, next) => {
         type: parsed.type,
         customerName: parsed.customerName.trim(),
         customerPhone: parsed.customerPhone.trim(),
+        customerEmail: parsed.customerEmail ? parsed.customerEmail.trim() : null,
         deliveryAddress: parsed.type === "DELIVERY" ? normalizedAddress : null,
         totalAmount: "0.00"
       });
@@ -206,6 +211,127 @@ router.post("/restaurants/:slug/orders", async (req, res, next) => {
           lineTotal: line.lineTotal
         }))
       }
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.post("/orders/:orderId/paystack/initialize", async (req, res, next) => {
+  try {
+    const orderId = Number(req.params.orderId);
+    if (!Number.isInteger(orderId)) {
+      throw new HttpError(400, "Invalid order id");
+    }
+
+    const email = typeof req.body?.email === "string" ? req.body.email.trim() : "";
+    const orderRepo = AppDataSource.getRepository(Order);
+    const order = await orderRepo.findOne({
+      where: { id: orderId },
+      relations: { orderItems: true }
+    });
+
+    if (!order) {
+      throw new HttpError(404, "Order not found");
+    }
+
+    if (order.status !== "PENDING_PAYMENT") {
+      throw new HttpError(400, "Order is not awaiting payment");
+    }
+
+    if (!order.orderItems || order.orderItems.length === 0) {
+      throw new HttpError(400, "Order has no items");
+    }
+
+    if (!order.customerEmail) {
+      if (!email) {
+        throw new HttpError(400, "customerEmail is required");
+      }
+      order.customerEmail = email;
+      await orderRepo.save(order);
+    }
+
+    const paymentService = new PaymentService();
+    const payment = await paymentService.createPendingPayment({ id: order.id });
+
+    const paystackService = new PaystackService();
+    const initResponse = await paystackService.initializeTransaction({
+      email: order.customerEmail,
+      amount: payment.amountKobo,
+      reference: payment.reference,
+      callback_url: env.paystack.callbackUrl,
+      metadata: {
+        orderId: order.id,
+        restaurantId: order.restaurantId
+      }
+    });
+
+    if (!initResponse?.status || !initResponse.data?.authorization_url) {
+      throw new HttpError(502, "Failed to initialize payment");
+    }
+
+    res.json({
+      authorizationUrl: initResponse.data.authorization_url,
+      reference: initResponse.data.reference ?? payment.reference
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.get("/payments/paystack/verify", async (req, res, next) => {
+  try {
+    const reference = String(req.query.reference ?? "").trim();
+    if (!reference) {
+      throw new HttpError(400, "reference is required");
+    }
+
+    const paystackService = new PaystackService();
+    const verifyResponse = await paystackService.verifyTransaction(reference);
+
+    const paymentService = new PaymentService();
+
+    if (verifyResponse?.data?.status === "success") {
+      const payment = await paymentService.markPaymentSuccess(reference, verifyResponse);
+      const orderRepo = AppDataSource.getRepository(Order);
+      const order = await orderRepo.findOne({ where: { id: payment.orderId } });
+
+      res.json({
+        status: "success",
+        payment: {
+          reference: payment.reference,
+          status: payment.status,
+          paidAt: payment.paidAt,
+          amountKobo: payment.amountKobo
+        },
+        order: order
+          ? {
+              id: order.id,
+              status: order.status,
+              totalAmount: order.totalAmount
+            }
+          : null
+      });
+      return;
+    }
+
+    const failedPayment = await paymentService.markPaymentFailed(reference);
+    const orderRepo = AppDataSource.getRepository(Order);
+    const order = await orderRepo.findOne({ where: { id: failedPayment.orderId } });
+
+    res.status(400).json({
+      status: "failed",
+      payment: {
+        reference: failedPayment.reference,
+        status: failedPayment.status
+      },
+      order: order
+        ? {
+            id: order.id,
+            status: order.status,
+            totalAmount: order.totalAmount
+          }
+        : null
     });
   } catch (error) {
     next(error);

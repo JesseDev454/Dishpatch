@@ -248,6 +248,11 @@ button.danger:hover {
   gap: 0.8rem;
 }
 
+.list-row span {
+  min-width: 1.5rem;
+  text-align: center;
+}
+
 .edit-grid {
   width: 100%;
   display: grid;

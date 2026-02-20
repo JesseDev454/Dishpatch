@@ -41,6 +41,11 @@ export const env = {
     refreshSecret: getValue(["JWT_REFRESH_SECRET"], "dev_refresh_secret_change_me"),
     accessExpires: process.env.JWT_ACCESS_EXPIRES ?? "15m",
     refreshExpires: process.env.JWT_REFRESH_EXPIRES ?? "7d"
+  },
+  paystack: {
+    secretKey: getValue(["PAYSTACK_SECRET_KEY"], "test_paystack_secret"),
+    callbackUrl: getValue(["PAYSTACK_CALLBACK_URL"], "http://localhost:5173/payment/callback"),
+    baseUrl: process.env.PAYSTACK_BASE_URL ?? "https://api.paystack.co"
   }
 };
 

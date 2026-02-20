@@ -31,7 +31,16 @@ export const createApp = () => {
       credentials: true
     })
   );
-  app.use(express.json());
+  app.use(
+    express.json({
+      verify: (req, _res, buf) => {
+        const requestUrl = req.url ?? "";
+        if (requestUrl === "/webhooks/paystack") {
+          (req as unknown as { rawBody?: Buffer }).rawBody = buf;
+        }
+      }
+    })
+  );
   app.use(cookieParser());
 
   app.get("/health", (_req, res) => {

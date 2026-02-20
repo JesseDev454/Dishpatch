@@ -67,6 +67,35 @@ npm run test:frontend
 npm test
 ```
 
+## Paystack Integration (Sprint 3)
+### Required Env Vars (Backend)
+Set in `backend/.env`:
+- `PAYSTACK_SECRET_KEY`
+- `PAYSTACK_CALLBACK_URL`
+- `PAYSTACK_BASE_URL` (optional, defaults to `https://api.paystack.co`)
+
+### Ngrok Example
+Frontend callback (port 5173):
+```bash
+ngrok http 5173
+```
+
+Backend webhook (port 4000):
+```bash
+ngrok http 4000
+```
+
+Use the ngrok URLs for:
+- Callback URL: `https://<frontend-ngrok-subdomain>.ngrok-free.app/payment/callback`
+- Webhook URL: `https://<backend-ngrok-subdomain>.ngrok-free.app/webhooks/paystack`
+
+### Manual UAT Flow
+1. Create an order at `http://localhost:5173/r/<restaurant-slug>`.
+2. Click `Pay Now` and complete the Paystack checkout.
+3. Paystack redirects to `/payment/callback` with `reference`.
+4. The callback page calls `/public/payments/paystack/verify` and shows status.
+5. For webhook testing, register `POST /webhooks/paystack` in Paystack dashboard and confirm signature verification.
+
 ## Backend Setup
 1. Go to backend:
    ```bash

@@ -4,6 +4,7 @@ import categoryRoutes from "./categories.routes";
 import itemRoutes from "./items.routes";
 import ordersRoutes from "./orders.routes";
 import publicRoutes from "./public.routes";
+import webhooksRoutes from "./webhooks.routes";
 
 const router = Router();
 
@@ -12,5 +13,6 @@ router.use("/categories", categoryRoutes);
 router.use("/items", itemRoutes);
 router.use("/orders", ordersRoutes);
 router.use("/public", publicRoutes);
+router.use("/webhooks", webhooksRoutes);
 
 export default router;

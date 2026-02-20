@@ -4,6 +4,8 @@ import { ProtectedRoute } from "./components/ProtectedRoute";
 import { LoginPage } from "./pages/LoginPage";
 import { RegisterPage } from "./pages/RegisterPage";
 import { DashboardPage } from "./pages/DashboardPage";
+import { PaymentCallbackPage } from "./pages/PaymentCallbackPage";
+import { PublicOrderPage } from "./pages/PublicOrderPage";
 
 function HomeRedirect() {
   const { user, loading } = useAuth();
@@ -19,6 +21,8 @@ export default function App() {
       <Route path="/" element={<HomeRedirect />} />
       <Route path="/register" element={<RegisterPage />} />
       <Route path="/login" element={<LoginPage />} />
+      <Route path="/r/:slug" element={<PublicOrderPage />} />
+      <Route path="/payment/callback" element={<PaymentCallbackPage />} />
       <Route
         path="/dashboard"
         element={

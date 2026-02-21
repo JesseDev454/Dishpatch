@@ -1,12 +1,15 @@
-# Dishpatch - Sprint 1
+# Dishpatch - Sprint 4
 
 Dishpatch is a multi-tenant Food Ordering and Restaurant Management SaaS for restaurants in Nigeria.
 
-Sprint 1 delivers:
+Current implementation delivers:
 - Restaurant registration and login
-- Protected dashboard
+- Protected dashboard for categories/items
 - Tenant-scoped category CRUD
 - Tenant-scoped item CRUD with availability toggle
+- Public menu + order creation
+- Paystack payment initialization/verification/webhook
+- Live Orders realtime dashboard via Socket.IO
 - Clear inline errors and success/error toast alerts in UI
 
 ## Tech Stack
@@ -96,6 +99,33 @@ Use the ngrok URLs for:
 4. The callback page calls `/public/payments/paystack/verify` and shows status.
 5. For webhook testing, register `POST /webhooks/paystack` in Paystack dashboard and confirm signature verification.
 
+## Realtime Orders (Sprint 4)
+### What Was Added
+- Backend Socket.IO server with JWT-protected handshake auth
+- Per-tenant room isolation (`restaurant:<restaurantId>`)
+- `order:paid` broadcast when payment is marked successful
+- `order:updated` broadcast when dashboard updates order status
+- Optional `orders:snapshot` event on socket connection
+- New protected endpoint: `PATCH /orders/:id/status`
+- `GET /orders` now supports `status`, `limit`, and `page`
+
+### Realtime Local Run Notes
+- Ensure backend `FRONTEND_URL` matches your frontend URL (default `http://localhost:5173`).
+- Start both apps:
+  ```bash
+  npm run dev
+  ```
+- Frontend proxies both `/api` and `/socket.io` to backend.
+
+### Manual Realtime Test Steps
+1. Login to dashboard at `http://localhost:5173/login`.
+2. Open `Live Orders` from dashboard header.
+3. In another tab, create and pay an order from `http://localhost:5173/r/<restaurant-slug>`.
+4. Confirm the paid order appears instantly in `Incoming / Paid` without manual refresh.
+5. Click `Accept` -> `Start Prep` -> `Mark Ready` -> `Complete` and confirm immediate UI updates.
+6. Open a second admin browser/tab for the same restaurant and confirm updates broadcast there instantly.
+7. Disconnect backend briefly and confirm `Realtime disconnected` badge appears; use `Refresh` as fallback.
+
 ## Backend Setup
 1. Go to backend:
    ```bash
@@ -180,6 +210,18 @@ Set in `backend/.env`:
 - `PATCH /items/:id`
 - `DELETE /items/:id`
 
+### Orders (protected)
+- `GET /orders?status=PAID,ACCEPTED&limit=50&page=1`
+- `PATCH /orders/:id/status`
+
+### Public Ordering + Payments
+- `GET /public/restaurants/:slug`
+- `GET /public/restaurants/:slug/menu`
+- `POST /public/restaurants/:slug/orders`
+- `POST /public/orders/:orderId/paystack/initialize`
+- `GET /public/payments/paystack/verify?reference=<reference>`
+- `POST /webhooks/paystack`
+
 ## Multi-Tenancy Enforcement
 - Every `User`, `Category`, and `Item` belongs to exactly one `Restaurant`.
 - Authenticated user includes `restaurantId`.
@@ -206,6 +248,14 @@ Set in `backend/.env`:
 16. (Tenant isolation) Create two restaurants and verify one cannot read/update/delete the other's categories/items.
 17. Verify Restaurant A categories/items are never visible while logged in as Restaurant B.
 18. Verify cross-tenant PATCH/DELETE requests fail (404/403) and do not mutate data.
+
+## Manual QA Checklist (Sprint 4 Realtime)
+1. Open two dashboard sessions for the same restaurant and navigate both to `Live Orders`.
+2. Complete a successful payment for a new order and verify both sessions receive `order:paid` instantly.
+3. Attempt invalid transition (`PENDING_PAYMENT -> ACCEPTED`) and verify API rejects it.
+4. Run valid transitions (`PAID -> ACCEPTED -> PREPARING -> READY -> COMPLETED`) and verify updates broadcast in both sessions.
+5. Attempt status update on another restaurant's order and verify request fails (404/403).
+6. Filter `GET /orders` by status and confirm only requested statuses are returned.
 
 ## Notes
 - Passwords are hashed with `bcryptjs`.

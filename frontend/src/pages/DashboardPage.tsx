@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { CategoryManager } from "../components/CategoryManager";
 import { ItemManager } from "../components/ItemManager";
 import { useAuth } from "../context/AuthContext";
@@ -69,15 +70,20 @@ export const DashboardPage = () => {
           <h1>Dishpatch</h1>
           <p className="muted">{user?.restaurant.name}</p>
         </div>
-        <button
-          className="ghost"
-          onClick={() => {
-            void logout();
-            showToast("Logged out successfully.", "info");
-          }}
-        >
-          Logout
-        </button>
+        <div className="actions">
+          <Link className="ghost link-button" to="/dashboard/orders">
+            Live Orders
+          </Link>
+          <button
+            className="ghost"
+            onClick={() => {
+              void logout();
+              showToast("Logged out successfully.", "info");
+            }}
+          >
+            Logout
+          </button>
+        </div>
       </header>
 
       {error ? <p className="error-text">{error}</p> : null}

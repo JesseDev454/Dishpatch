@@ -6,6 +6,7 @@ import { RegisterPage } from "./pages/RegisterPage";
 import { DashboardPage } from "./pages/DashboardPage";
 import { PaymentCallbackPage } from "./pages/PaymentCallbackPage";
 import { PublicOrderPage } from "./pages/PublicOrderPage";
+import { LiveOrdersPage } from "./pages/LiveOrdersPage";
 
 function HomeRedirect() {
   const { user, loading } = useAuth();
@@ -28,6 +29,14 @@ export default function App() {
         element={
           <ProtectedRoute>
             <DashboardPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/dashboard/orders"
+        element={
+          <ProtectedRoute>
+            <LiveOrdersPage />
           </ProtectedRoute>
         }
       />

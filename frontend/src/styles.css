@@ -87,6 +87,26 @@ button.danger:hover {
   background: #9f2f25;
 }
 
+.link-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+}
+
+.link-button.ghost {
+  background: #ffffff;
+  color: #1f2937;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  padding: 0.6rem 0.95rem;
+}
+
+.link-button.ghost:hover {
+  background: #f9fafb;
+  text-decoration: none;
+}
+
 .center-page {
   min-height: 100vh;
   display: grid;
@@ -172,6 +192,108 @@ button.danger:hover {
   display: grid;
   gap: 1rem;
   grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+}
+
+.live-orders-toolbar {
+  margin-top: 1rem;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.live-orders-toolbar h2 {
+  margin: 0;
+  font-size: 1.2rem;
+}
+
+.status-pill {
+  border-radius: 999px;
+  padding: 0.22rem 0.6rem;
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+.status-pill.connected {
+  background: #ecfdf5;
+  color: #047857;
+  border: 1px solid #a7f3d0;
+}
+
+.status-pill.disconnected {
+  background: #fef2f2;
+  color: #b91c1c;
+  border: 1px solid #fecaca;
+}
+
+.live-orders-board {
+  margin-top: 0.9rem;
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+}
+
+.order-list {
+  display: grid;
+  gap: 0.7rem;
+}
+
+.order-card {
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  padding: 0.8rem;
+}
+
+.order-card-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 0.5rem;
+}
+
+.order-lines {
+  display: grid;
+  gap: 0.2rem;
+}
+
+.status-badge {
+  border-radius: 999px;
+  padding: 0.18rem 0.55rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.status-paid {
+  background: #eff6ff;
+  color: #1d4ed8;
+}
+
+.status-accepted,
+.status-preparing {
+  background: #fffbeb;
+  color: #b45309;
+}
+
+.status-ready {
+  background: #ecfdf5;
+  color: #047857;
+}
+
+.status-completed {
+  background: #f3f4f6;
+  color: #374151;
+}
+
+.status-cancelled,
+.status-failed_payment {
+  background: #fef2f2;
+  color: #b91c1c;
+}
+
+.status-pending_payment {
+  background: #f8fafc;
+  color: #475569;
 }
 
 .section-nav {
@@ -343,5 +465,9 @@ button.danger:hover {
   .list-row {
     flex-direction: column;
     align-items: flex-start;
+  }
+
+  .order-card-head {
+    flex-direction: column;
   }
 }

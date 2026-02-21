@@ -5,6 +5,8 @@ import { Order } from "../entities/Order";
 import { Payment } from "../entities/Payment";
 import { convertNairaToKobo } from "../utils/money";
 import { assertOrderStatusTransition } from "../utils/order-state";
+import { toOrderSummary } from "../realtime/order-summary";
+import * as realtimeEmitter from "../realtime/realtime-emitter";
 
 export class PaymentService {
   private dataSource: DataSource;
@@ -61,7 +63,7 @@ export class PaymentService {
   }
 
   async markPaymentSuccess(reference: string, payload: Record<string, unknown>): Promise<Payment> {
-    return this.dataSource.transaction(async (trx) => {
+    const result = await this.dataSource.transaction(async (trx) => {
       const paymentRepo = trx.getRepository(Payment);
       const orderRepo = trx.getRepository(Order);
 
@@ -71,7 +73,10 @@ export class PaymentService {
       }
 
       if (payment.status === "SUCCESS") {
-        return payment;
+        return {
+          payment,
+          orderSummary: null as ReturnType<typeof toOrderSummary> | null
+        };
       }
 
       const order = await orderRepo.findOne({ where: { id: payment.orderId } });
@@ -89,8 +94,26 @@ export class PaymentService {
       order.status = "PAID";
       await orderRepo.save(order);
 
-      return payment;
+      const orderWithItems = await orderRepo.findOne({
+        where: { id: order.id },
+        relations: { orderItems: true }
+      });
+
+      if (!orderWithItems) {
+        throw new Error("Order not found");
+      }
+
+      return {
+        payment,
+        orderSummary: toOrderSummary(orderWithItems)
+      };
     });
+
+    if (result.orderSummary) {
+      realtimeEmitter.emitOrderPaid(result.orderSummary);
+    }
+
+    return result.payment;
   }
 
   async markPaymentFailed(reference: string): Promise<Payment> {

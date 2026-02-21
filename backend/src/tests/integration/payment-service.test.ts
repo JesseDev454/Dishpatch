@@ -5,10 +5,16 @@ import { Order } from "../../entities/Order";
 import { Payment } from "../../entities/Payment";
 import { registerAndGetToken } from "../helpers/auth";
 import { PaymentService } from "../../services/payment.service";
+import * as realtimeEmitter from "../../realtime/realtime-emitter";
 
 describe("PaymentService", () => {
   const app = createApp();
   const paymentService = new PaymentService(AppDataSource);
+  const emitOrderPaidSpy = jest.spyOn(realtimeEmitter, "emitOrderPaid");
+
+  beforeEach(() => {
+    emitOrderPaidSpy.mockClear();
+  });
 
   const createPendingOrderFixture = async () => {
     const auth = await registerAndGetToken(app, {
@@ -114,6 +120,13 @@ describe("PaymentService", () => {
     expect(persistedPayment.status).toBe("SUCCESS");
     expect(persistedPayment.paidAt).toBeTruthy();
     expect(persistedPayment.rawPayload).toEqual(payload);
+    expect(emitOrderPaidSpy).toHaveBeenCalledTimes(1);
+    expect(emitOrderPaidSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: order.id,
+        status: "PAID"
+      })
+    );
   });
 
   it("markPaymentFailed updates order status to FAILED_PAYMENT", async () => {
@@ -146,6 +159,7 @@ describe("PaymentService", () => {
     expect(second.status).toBe("SUCCESS");
     expect(persistedAfterSecond.paidAt?.toISOString()).toBe(persistedAfterFirst.paidAt?.toISOString());
     expect(persistedAfterSecond.rawPayload).toEqual(firstPayload);
+    expect(emitOrderPaidSpy).toHaveBeenCalledTimes(1);
 
     const orderRepo = AppDataSource.getRepository(Order);
     const persistedOrder = await orderRepo.findOneOrFail({ where: { id: order.id } });

@@ -33,3 +33,38 @@ export interface Item {
   createdAt: string;
   updatedAt: string;
 }
+
+export type OrderStatus =
+  | "PENDING_PAYMENT"
+  | "PAID"
+  | "ACCEPTED"
+  | "PREPARING"
+  | "READY"
+  | "COMPLETED"
+  | "CANCELLED"
+  | "FAILED_PAYMENT";
+
+export type OrderType = "DELIVERY" | "PICKUP";
+
+export interface OrderItemSnapshot {
+  id: number;
+  itemId: number;
+  nameSnapshot: string;
+  unitPriceSnapshot: string;
+  quantity: number;
+  lineTotal: string;
+}
+
+export interface OrderSummary {
+  id: number;
+  restaurantId: number;
+  status: OrderStatus;
+  type: OrderType;
+  customerName: string;
+  customerPhone: string;
+  deliveryAddress: string | null;
+  totalAmount: string;
+  createdAt: string;
+  updatedAt: string;
+  items: OrderItemSnapshot[];
+}

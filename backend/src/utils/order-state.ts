@@ -1,7 +1,11 @@
 import { OrderStatus } from "../entities/Order";
 
 const ALLOWED_NEXT_STATES: Partial<Record<OrderStatus, OrderStatus[]>> = {
-  PENDING_PAYMENT: ["PAID", "FAILED_PAYMENT"]
+  PENDING_PAYMENT: ["PAID", "FAILED_PAYMENT"],
+  PAID: ["ACCEPTED", "CANCELLED"],
+  ACCEPTED: ["PREPARING", "CANCELLED"],
+  PREPARING: ["READY", "CANCELLED"],
+  READY: ["COMPLETED", "CANCELLED"]
 };
 
 export const canTransitionOrderStatus = (current: OrderStatus, next: OrderStatus): boolean => {

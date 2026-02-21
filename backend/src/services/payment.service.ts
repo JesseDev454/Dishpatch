@@ -39,14 +39,36 @@ export class PaymentService {
   async createPendingPayment(order: Pick<Order, "id">): Promise<Payment> {
     const persistedOrder = await this.getOrderOrThrow(order.id);
 
-    if (persistedOrder.status !== "PENDING_PAYMENT") {
-      throw new Error("Cannot initialize payment for non-pending order");
-    }
-
     const paymentRepo = this.dataSource.getRepository(Payment);
     const existingPayment = await paymentRepo.findOne({ where: { orderId: persistedOrder.id } });
     if (existingPayment) {
-      throw new Error("Payment already exists for this order");
+      if (existingPayment.status === "PENDING" || existingPayment.status === "SUCCESS") {
+        throw new Error("Payment already exists for this order");
+      }
+
+      if (existingPayment.status === "FAILED") {
+        const orderRepo = this.dataSource.getRepository(Order);
+
+        if (persistedOrder.status === "FAILED_PAYMENT") {
+          persistedOrder.status = "PENDING_PAYMENT";
+          await orderRepo.save(persistedOrder);
+        }
+
+        if (persistedOrder.status !== "PENDING_PAYMENT") {
+          throw new Error("Cannot initialize payment for non-pending order");
+        }
+
+        existingPayment.status = "PENDING";
+        existingPayment.reference = await this.generateReference();
+        existingPayment.amountKobo = convertNairaToKobo(persistedOrder.totalAmount);
+        existingPayment.paidAt = null;
+        existingPayment.rawPayload = null;
+        return paymentRepo.save(existingPayment);
+      }
+    }
+
+    if (persistedOrder.status !== "PENDING_PAYMENT") {
+      throw new Error("Cannot initialize payment for non-pending order");
     }
 
     const payment = paymentRepo.create({
@@ -127,6 +149,10 @@ export class PaymentService {
       }
 
       if (payment.status === "FAILED") {
+        return payment;
+      }
+
+      if (payment.status === "SUCCESS") {
         return payment;
       }
 

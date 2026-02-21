@@ -10,6 +10,14 @@ const nodeEnv = runtimeNodeEnv;
 const isProduction = nodeEnv === "production";
 const isTest = nodeEnv === "test";
 
+const parsePositiveInt = (raw: string | undefined, fallback: number): number => {
+  const parsed = Number(raw);
+  if (Number.isInteger(parsed) && parsed > 0) {
+    return parsed;
+  }
+  return fallback;
+};
+
 const getValue = (keys: string[], fallback: string): string => {
   for (const key of keys) {
     const raw = process.env[key];
@@ -46,6 +54,10 @@ export const env = {
     secretKey: getValue(["PAYSTACK_SECRET_KEY"], "test_paystack_secret"),
     callbackUrl: getValue(["PAYSTACK_CALLBACK_URL"], "http://localhost:5173/payment/callback"),
     baseUrl: process.env.PAYSTACK_BASE_URL ?? "https://api.paystack.co"
+  },
+  orders: {
+    expiryMinutes: parsePositiveInt(process.env.ORDER_EXPIRY_MINUTES, 30),
+    expiryJobIntervalSeconds: parsePositiveInt(process.env.ORDER_EXPIRY_JOB_INTERVAL_SECONDS, 60)
   }
 };
 

@@ -399,6 +399,91 @@ button.danger:hover {
   font-size: 0.92rem;
 }
 
+.callback-card {
+  width: min(460px, 100%);
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 1.1rem;
+}
+
+.callback-card h2 {
+  margin: 0 0 0.35rem;
+  font-size: 1.1rem;
+}
+
+.receipt-page {
+  min-height: 100vh;
+  background: #f9fafb;
+  padding: 1rem;
+}
+
+.receipt-actions {
+  max-width: 760px;
+  margin: 0 auto 0.8rem;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.receipt-shell {
+  max-width: 760px;
+  margin: 0 auto;
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 1.2rem;
+}
+
+.receipt-header {
+  border-bottom: 1px solid #e5e7eb;
+  padding-bottom: 0.8rem;
+  margin-bottom: 0.9rem;
+}
+
+.receipt-header h1 {
+  margin: 0;
+  font-size: 1.3rem;
+}
+
+.receipt-header p {
+  margin: 0.3rem 0 0;
+  color: #6b7280;
+}
+
+.receipt-meta,
+.receipt-customer {
+  margin-bottom: 1rem;
+}
+
+.receipt-meta p,
+.receipt-customer p {
+  margin: 0.18rem 0;
+}
+
+.receipt-customer h2 {
+  margin: 0 0 0.4rem;
+  font-size: 1rem;
+}
+
+.receipt-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.receipt-table th,
+.receipt-table td {
+  text-align: left;
+  border-bottom: 1px solid #e5e7eb;
+  padding: 0.5rem 0.35rem;
+  font-size: 0.92rem;
+}
+
+.receipt-total {
+  margin-top: 0.9rem;
+  border-top: 1px solid #e5e7eb;
+  padding-top: 0.8rem;
+}
+
 .toast-stack {
   position: fixed;
   top: 1rem;
@@ -469,5 +554,32 @@ button.danger:hover {
 
   .order-card-head {
     flex-direction: column;
+  }
+}
+
+@media print {
+  body {
+    background: #ffffff;
+  }
+
+  .no-print {
+    display: none !important;
+  }
+
+  .receipt-page {
+    padding: 0;
+    background: #ffffff;
+  }
+
+  .receipt-shell {
+    max-width: 100%;
+    border: 0;
+    border-radius: 0;
+    padding: 0;
+  }
+
+  .receipt-table th,
+  .receipt-table td {
+    border-color: #d1d5db;
   }
 }

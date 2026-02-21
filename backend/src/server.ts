@@ -3,6 +3,7 @@ import { env } from "./config/env";
 import { createApp } from "./app";
 import { createServer } from "http";
 import { createRealtimeServer } from "./realtime/socket";
+import { startOrderExpiryJob } from "./jobs/order-expiry-job";
 
 const bootstrap = async () => {
   await AppDataSource.initialize();
@@ -10,6 +11,7 @@ const bootstrap = async () => {
   const app = createApp();
   const httpServer = createServer(app);
   createRealtimeServer(httpServer);
+  startOrderExpiryJob(AppDataSource);
 
   httpServer.listen(env.port, () => {
     console.log(`Dishpatch backend running on port ${env.port}`);

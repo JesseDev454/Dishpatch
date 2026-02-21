@@ -6,12 +6,16 @@ import { Category } from "../entities/Category";
 import { Item } from "../entities/Item";
 import { Order } from "../entities/Order";
 import { OrderItem } from "../entities/OrderItem";
+import { Payment } from "../entities/Payment";
 import { PaymentService } from "../services/payment.service";
 import { PaystackService } from "../services/paystack.service";
 import { env } from "../config/env";
 import { HttpError } from "../middleware/error-handler";
+import { isPendingOrderExpired } from "../utils/order-expiry";
 
 const router = Router();
+
+const RECEIPT_ALLOWED_ORDER_STATUSES = new Set<string>(["PAID", "ACCEPTED", "PREPARING", "READY", "COMPLETED"]);
 
 const createOrderSchema = z.object({
   type: z.enum(["DELIVERY", "PICKUP"]),
@@ -235,7 +239,17 @@ router.post("/orders/:orderId/paystack/initialize", async (req, res, next) => {
       throw new HttpError(404, "Order not found");
     }
 
-    if (order.status !== "PENDING_PAYMENT") {
+    if (isPendingOrderExpired(order, new Date(), env.orders.expiryMinutes)) {
+      order.status = "EXPIRED";
+      await orderRepo.save(order);
+      throw new HttpError(400, "Order payment window has expired");
+    }
+
+    if (order.status === "EXPIRED") {
+      throw new HttpError(400, "Order payment window has expired");
+    }
+
+    if (order.status !== "PENDING_PAYMENT" && order.status !== "FAILED_PAYMENT") {
       throw new HttpError(400, "Order is not awaiting payment");
     }
 
@@ -251,8 +265,13 @@ router.post("/orders/:orderId/paystack/initialize", async (req, res, next) => {
       await orderRepo.save(order);
     }
 
-    const paymentService = new PaymentService();
-    const payment = await paymentService.createPendingPayment({ id: order.id });
+    let payment: Payment;
+    try {
+      const paymentService = new PaymentService();
+      payment = await paymentService.createPendingPayment({ id: order.id });
+    } catch (error) {
+      throw new HttpError(400, (error as Error).message);
+    }
 
     const paystackService = new PaystackService();
     const initResponse = await paystackService.initializeTransaction({
@@ -286,6 +305,49 @@ router.get("/payments/paystack/verify", async (req, res, next) => {
       throw new HttpError(400, "reference is required");
     }
 
+    const paymentRepo = AppDataSource.getRepository(Payment);
+    const existingPayment = await paymentRepo.findOne({
+      where: { reference },
+      relations: { order: { restaurant: true } }
+    });
+
+    if (!existingPayment) {
+      throw new HttpError(404, "Payment not found");
+    }
+
+    const existingOrder = existingPayment.order;
+    if (existingOrder && isPendingOrderExpired(existingOrder, new Date(), env.orders.expiryMinutes)) {
+      existingOrder.status = "EXPIRED";
+      const orderRepo = AppDataSource.getRepository(Order);
+      await orderRepo.save(existingOrder);
+      throw new HttpError(400, "Order payment window has expired");
+    }
+
+    if (existingOrder?.status === "EXPIRED") {
+      throw new HttpError(400, "Order payment window has expired");
+    }
+
+    if (existingPayment.status === "SUCCESS") {
+      res.json({
+        status: "success",
+        payment: {
+          reference: existingPayment.reference,
+          status: existingPayment.status,
+          paidAt: existingPayment.paidAt,
+          amountKobo: existingPayment.amountKobo
+        },
+        order: existingOrder
+          ? {
+              id: existingOrder.id,
+              status: existingOrder.status,
+              totalAmount: existingOrder.totalAmount,
+              restaurantSlug: existingOrder.restaurant?.slug ?? undefined
+            }
+          : null
+      });
+      return;
+    }
+
     const paystackService = new PaystackService();
     const verifyResponse = await paystackService.verifyTransaction(reference);
 
@@ -294,7 +356,10 @@ router.get("/payments/paystack/verify", async (req, res, next) => {
     if (verifyResponse?.data?.status === "success") {
       const payment = await paymentService.markPaymentSuccess(reference, verifyResponse);
       const orderRepo = AppDataSource.getRepository(Order);
-      const order = await orderRepo.findOne({ where: { id: payment.orderId } });
+      const order = await orderRepo.findOne({
+        where: { id: payment.orderId },
+        relations: { restaurant: true }
+      });
 
       res.json({
         status: "success",
@@ -308,7 +373,8 @@ router.get("/payments/paystack/verify", async (req, res, next) => {
           ? {
               id: order.id,
               status: order.status,
-              totalAmount: order.totalAmount
+              totalAmount: order.totalAmount,
+              restaurantSlug: order.restaurant?.slug ?? undefined
             }
           : null
       });
@@ -317,7 +383,10 @@ router.get("/payments/paystack/verify", async (req, res, next) => {
 
     const failedPayment = await paymentService.markPaymentFailed(reference);
     const orderRepo = AppDataSource.getRepository(Order);
-    const order = await orderRepo.findOne({ where: { id: failedPayment.orderId } });
+    const order = await orderRepo.findOne({
+      where: { id: failedPayment.orderId },
+      relations: { restaurant: true }
+    });
 
     res.status(400).json({
       status: "failed",
@@ -329,9 +398,75 @@ router.get("/payments/paystack/verify", async (req, res, next) => {
         ? {
             id: order.id,
             status: order.status,
-            totalAmount: order.totalAmount
+            totalAmount: order.totalAmount,
+            restaurantSlug: order.restaurant?.slug ?? undefined
           }
         : null
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.get("/receipts/:reference", async (req, res, next) => {
+  try {
+    const reference = String(req.params.reference ?? "").trim();
+    if (!reference) {
+      throw new HttpError(404, "Receipt not found");
+    }
+
+    const paymentRepo = AppDataSource.getRepository(Payment);
+    const payment = await paymentRepo.findOne({
+      where: { reference },
+      relations: { order: { orderItems: true, restaurant: true } }
+    });
+
+    if (!payment) {
+      throw new HttpError(404, "Receipt not found");
+    }
+
+    if (payment.status !== "SUCCESS") {
+      throw new HttpError(400, "Payment is not successful");
+    }
+
+    const order = payment.order;
+    if (!order) {
+      throw new HttpError(404, "Order not found");
+    }
+
+    if (!RECEIPT_ALLOWED_ORDER_STATUSES.has(order.status)) {
+      throw new HttpError(400, "Order is not paid");
+    }
+
+    if (!order.restaurant) {
+      throw new HttpError(404, "Restaurant not found");
+    }
+
+    res.json({
+      restaurant: {
+        name: order.restaurant.name
+      },
+      order: {
+        id: order.id,
+        type: order.type,
+        customerName: order.customerName,
+        customerPhone: order.customerPhone,
+        customerEmail: order.customerEmail,
+        deliveryAddress: order.deliveryAddress,
+        totalAmount: order.totalAmount,
+        createdAt: order.createdAt
+      },
+      items: (order.orderItems ?? []).map((line) => ({
+        nameSnapshot: line.nameSnapshot,
+        unitPriceSnapshot: line.unitPriceSnapshot,
+        quantity: line.quantity,
+        lineTotal: line.lineTotal
+      })),
+      payment: {
+        reference: payment.reference,
+        paidAt: payment.paidAt,
+        amountKobo: payment.amountKobo
+      }
     });
   } catch (error) {
     next(error);

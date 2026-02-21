@@ -16,6 +16,7 @@ import { Payment } from "./Payment";
 
 export type OrderStatus =
   | "PENDING_PAYMENT"
+  | "EXPIRED"
   | "PAID"
   | "ACCEPTED"
   | "PREPARING"
@@ -28,6 +29,7 @@ export type OrderType = "DELIVERY" | "PICKUP";
 
 export const ORDER_STATUSES: OrderStatus[] = [
   "PENDING_PAYMENT",
+  "EXPIRED",
   "PAID",
   "ACCEPTED",
   "PREPARING",

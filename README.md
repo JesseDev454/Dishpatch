@@ -9,6 +9,7 @@ Current implementation delivers:
 - Tenant-scoped item CRUD with availability toggle
 - Public menu + order creation
 - Paystack payment initialization/verification/webhook
+- Automatic pending-order expiry (30 minutes default) with realtime `order:updated` events
 - Live Orders realtime dashboard via Socket.IO
 - Clear inline errors and success/error toast alerts in UI
 
@@ -95,9 +96,10 @@ Use the ngrok URLs for:
 ### Manual UAT Flow
 1. Create an order at `http://localhost:5173/r/<restaurant-slug>`.
 2. Click `Pay Now` and complete the Paystack checkout.
-3. Paystack redirects to `/payment/callback` with `reference`.
-4. The callback page calls `/public/payments/paystack/verify` and shows status.
-5. For webhook testing, register `POST /webhooks/paystack` in Paystack dashboard and confirm signature verification.
+3. Paystack redirects to `/payment/callback?reference=...` (or `trxref` fallback).
+4. Callback page shows `Processing payment...`, verifies via `/public/payments/paystack/verify`, then redirects to `/receipt/:reference` on success.
+5. If verification fails, callback page shows `Payment not confirmed` with `Retry` and `Back to restaurant` options.
+6. For webhook testing, register `POST /webhooks/paystack` in Paystack dashboard and confirm signature verification.
 
 ## Realtime Orders (Sprint 4)
 ### What Was Added
@@ -111,6 +113,7 @@ Use the ngrok URLs for:
 
 ### Realtime Local Run Notes
 - Ensure backend `FRONTEND_URL` matches your frontend URL (default `http://localhost:5173`).
+- Pending payment orders auto-expire after `ORDER_EXPIRY_MINUTES` (default `30`), and expiry sweep runs every `ORDER_EXPIRY_JOB_INTERVAL_SECONDS` (default `60`).
 - Start both apps:
   ```bash
   npm run dev
@@ -189,6 +192,8 @@ Set in `backend/.env`:
 - `JWT_REFRESH_SECRET`
 - `JWT_ACCESS_EXPIRES` (default `15m`)
 - `JWT_REFRESH_EXPIRES` (default `7d`)
+- `ORDER_EXPIRY_MINUTES` (default `30`)
+- `ORDER_EXPIRY_JOB_INTERVAL_SECONDS` (default `60`)
 
 ## API Endpoints
 ### Auth
@@ -220,6 +225,7 @@ Set in `backend/.env`:
 - `POST /public/restaurants/:slug/orders`
 - `POST /public/orders/:orderId/paystack/initialize`
 - `GET /public/payments/paystack/verify?reference=<reference>`
+- `GET /public/receipts/:reference`
 - `POST /webhooks/paystack`
 
 ## Multi-Tenancy Enforcement

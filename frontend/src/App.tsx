@@ -7,6 +7,7 @@ import { DashboardPage } from "./pages/DashboardPage";
 import { PaymentCallbackPage } from "./pages/PaymentCallbackPage";
 import { PublicOrderPage } from "./pages/PublicOrderPage";
 import { LiveOrdersPage } from "./pages/LiveOrdersPage";
+import { ReceiptPage } from "./pages/ReceiptPage";
 
 function HomeRedirect() {
   const { user, loading } = useAuth();
@@ -24,6 +25,7 @@ export default function App() {
       <Route path="/login" element={<LoginPage />} />
       <Route path="/r/:slug" element={<PublicOrderPage />} />
       <Route path="/payment/callback" element={<PaymentCallbackPage />} />
+      <Route path="/receipt/:reference" element={<ReceiptPage />} />
       <Route
         path="/dashboard"
         element={

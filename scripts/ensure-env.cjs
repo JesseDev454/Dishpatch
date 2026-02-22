@@ -8,5 +8,5 @@ const backendExampleEnv = path.join(rootDir, "backend", ".env.example");
 if (!fs.existsSync(backendEnv) && fs.existsSync(backendExampleEnv)) {
   fs.copyFileSync(backendExampleEnv, backendEnv);
   console.log("[setup] Created backend/.env from backend/.env.example");
-  console.log("[setup] Update DB_PASSWORD and JWT secrets in backend/.env before production use.");
+  console.log("[setup] Update DATABASE_URL and JWT secrets in backend/.env before production use.");
 }

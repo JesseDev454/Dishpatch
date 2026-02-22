@@ -30,10 +30,10 @@ export class Restaurant {
   @Column({ type: "varchar", length: 255, nullable: true })
   address!: string | null;
 
-  @CreateDateColumn({ type: "timestamp" })
+  @CreateDateColumn({ type: "timestamptz" })
   createdAt!: Date;
 
-  @UpdateDateColumn({ type: "timestamp" })
+  @UpdateDateColumn({ type: "timestamptz" })
   updatedAt!: Date;
 
   @OneToMany(() => User, (user) => user.restaurant)

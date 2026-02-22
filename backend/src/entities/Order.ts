@@ -71,10 +71,10 @@ export class Order {
   @Column({ type: "decimal", precision: 10, scale: 2, default: "0.00" })
   totalAmount!: string;
 
-  @CreateDateColumn({ type: "timestamp" })
+  @CreateDateColumn({ type: "timestamptz" })
   createdAt!: Date;
 
-  @UpdateDateColumn({ type: "timestamp" })
+  @UpdateDateColumn({ type: "timestamptz" })
   updatedAt!: Date;
 
   @ManyToOne(() => Restaurant, (restaurant) => restaurant.orders, { onDelete: "CASCADE" })

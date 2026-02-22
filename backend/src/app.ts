@@ -11,6 +11,8 @@ export const createApp = () => {
   const app = express();
 
   const allowedOriginPattern = /^http:\/\/localhost:\d+$/;
+  const normalizeOrigin = (origin: string): string => origin.replace(/\/$/, "");
+  const allowedOrigins = new Set(env.frontendUrls.map(normalizeOrigin));
 
   app.use(helmet());
   app.use(
@@ -21,7 +23,9 @@ export const createApp = () => {
           return;
         }
 
-        if (origin === env.frontendUrl || (env.nodeEnv !== "production" && allowedOriginPattern.test(origin))) {
+        const normalizedOrigin = normalizeOrigin(origin);
+
+        if (allowedOrigins.has(normalizedOrigin) || (env.nodeEnv !== "production" && allowedOriginPattern.test(origin))) {
           callback(null, true);
           return;
         }

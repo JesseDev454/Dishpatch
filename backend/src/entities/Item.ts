@@ -38,10 +38,10 @@ export class Item {
   @Column({ type: "boolean", default: true })
   isAvailable!: boolean;
 
-  @CreateDateColumn({ type: "timestamp" })
+  @CreateDateColumn({ type: "timestamptz" })
   createdAt!: Date;
 
-  @UpdateDateColumn({ type: "timestamp" })
+  @UpdateDateColumn({ type: "timestamptz" })
   updatedAt!: Date;
 
   @ManyToOne(() => Restaurant, (restaurant) => restaurant.items, { onDelete: "CASCADE" })

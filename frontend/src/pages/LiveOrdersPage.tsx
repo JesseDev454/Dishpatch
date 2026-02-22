@@ -4,7 +4,7 @@ import { io, Socket } from "socket.io-client";
 import { useAuth } from "../context/AuthContext";
 import { useToast } from "../context/ToastContext";
 import { getApiErrorMessage } from "../lib/errors";
-import { api, getStoredAccessToken } from "../lib/api";
+import { api, getSocketBaseUrl, getStoredAccessToken } from "../lib/api";
 import { OrderStatus, OrderSummary } from "../types";
 
 const DEFAULT_FILTER_STATUSES = ["PAID", "ACCEPTED", "PREPARING", "READY", "COMPLETED", "CANCELLED"].join(",");
@@ -73,7 +73,7 @@ export const LiveOrdersPage = () => {
       return;
     }
 
-    const socket = io("/", {
+    const socket = io(getSocketBaseUrl(), {
       path: "/socket.io",
       auth: { token: `Bearer ${token}` },
       withCredentials: true

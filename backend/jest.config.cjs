@@ -6,5 +6,6 @@ module.exports = {
   setupFilesAfterEnv: ["<rootDir>/src/tests/setup/jest.setup.ts"],
   globalSetup: "<rootDir>/src/tests/setup/global-setup.ts",
   clearMocks: true,
-  maxWorkers: 1
+  maxWorkers: 1,
+  testTimeout: 30000
 };

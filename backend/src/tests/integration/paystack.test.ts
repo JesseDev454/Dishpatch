@@ -8,6 +8,7 @@ import { Order } from "../../entities/Order";
 import { Payment } from "../../entities/Payment";
 import { PaymentService } from "../../services/payment.service";
 import { env } from "../../config/env";
+import * as asyncJobs from "../../jobs/async-jobs";
 
 jest.mock("axios");
 
@@ -27,6 +28,8 @@ describe("Paystack Integration", () => {
   const app = createApp();
   const postMock = jest.fn();
   const getMock = jest.fn();
+  const enqueueAsyncJobSpy = jest.spyOn(asyncJobs, "enqueueAsyncJob");
+  const consoleInfoSpy = jest.spyOn(console, "info").mockImplementation(() => undefined);
 
   const makeWebhookSignature = (payload: Record<string, unknown>): string => {
     const raw = JSON.stringify(payload);
@@ -36,9 +39,14 @@ describe("Paystack Integration", () => {
   beforeEach(() => {
     postMock.mockReset();
     getMock.mockReset();
+    enqueueAsyncJobSpy.mockClear();
     resendSendMock.mockReset();
     resendSendMock.mockResolvedValue({ id: "email_mock_id" });
     mockedAxios.create.mockReturnValue({ post: postMock, get: getMock } as any);
+  });
+
+  afterAll(() => {
+    consoleInfoSpy.mockRestore();
   });
 
   const createOrderFixture = async (override?: Partial<{ email: string }>) => {
@@ -212,7 +220,7 @@ describe("Paystack Integration", () => {
     const orderRepo = AppDataSource.getRepository(Order);
     const staleDate = new Date(Date.now() - 31 * 60 * 1000);
 
-    await orderRepo.query("UPDATE `orders` SET `createdAt` = ?, `status` = 'PENDING_PAYMENT' WHERE `id` = ?", [
+    await orderRepo.query(`UPDATE "orders" SET "createdAt" = $1, "status" = 'PENDING_PAYMENT' WHERE "id" = $2`, [
       staleDate,
       orderId
     ]);
@@ -247,7 +255,7 @@ describe("Paystack Integration", () => {
 
     const orderRepo = AppDataSource.getRepository(Order);
     const staleDate = new Date(Date.now() - 31 * 60 * 1000);
-    await orderRepo.query("UPDATE `orders` SET `createdAt` = ?, `status` = 'PENDING_PAYMENT' WHERE `id` = ?", [
+    await orderRepo.query(`UPDATE "orders" SET "createdAt" = $1, "status" = 'PENDING_PAYMENT' WHERE "id" = $2`, [
       staleDate,
       orderId
     ]);
@@ -284,6 +292,11 @@ describe("Paystack Integration", () => {
     const paymentRepo = AppDataSource.getRepository(Payment);
     const persistedPayment = await paymentRepo.findOneOrFail({ where: { id: payment.id } });
     expect(persistedPayment.status).toBe("SUCCESS");
+
+    await asyncJobs.waitForAsyncJobs();
+    const paymentWithEmailMetadata = await paymentRepo.findOneOrFail({ where: { id: payment.id } });
+    expect(paymentWithEmailMetadata.customerReceiptEmailMessageId).toBe("email_mock_id");
+    expect(paymentWithEmailMetadata.restaurantNotificationEmailMessageId).toBe("email_mock_id");
 
     const orderRepo = AppDataSource.getRepository(Order);
     const persistedOrder = await orderRepo.findOneOrFail({ where: { id: orderId } });
@@ -439,6 +452,7 @@ describe("Paystack Integration", () => {
       .set("Content-Type", "application/json")
       .send(JSON.stringify(payload));
     expect(first.status).toBe(200);
+    await asyncJobs.waitForAsyncJobs();
     expect(resendSendMock).toHaveBeenCalledTimes(2);
 
     const paymentRepo = AppDataSource.getRepository(Payment);
@@ -476,6 +490,7 @@ describe("Paystack Integration", () => {
 
     const verifyResponse = await request(app).get(`/public/payments/paystack/verify?reference=${payment.reference}`);
     expect(verifyResponse.status).toBe(200);
+    await asyncJobs.waitForAsyncJobs();
     expect(resendSendMock).toHaveBeenCalledTimes(2);
 
     const paymentRepo = AppDataSource.getRepository(Payment);
@@ -512,5 +527,34 @@ describe("Paystack Integration", () => {
       .send(JSON.stringify(payload));
 
     expect([400, 401]).toContain(response.status);
+  });
+
+  it("webhook responds 200 without waiting for email jobs", async () => {
+    const { orderId } = await createOrderFixture();
+    const paymentService = new PaymentService(AppDataSource);
+    const payment = await paymentService.createPendingPayment({ id: orderId });
+    const queuedJobs: Array<() => Promise<void>> = [];
+
+    enqueueAsyncJobSpy.mockImplementationOnce((job) => {
+      queuedJobs.push(job);
+    });
+
+    const payload = {
+      event: "charge.success",
+      data: { reference: payment.reference }
+    };
+
+    const response = await request(app)
+      .post("/webhooks/paystack")
+      .set("x-paystack-signature", makeWebhookSignature(payload))
+      .set("Content-Type", "application/json")
+      .send(JSON.stringify(payload));
+
+    expect(response.status).toBe(200);
+    expect(queuedJobs).toHaveLength(1);
+    expect(resendSendMock).toHaveBeenCalledTimes(0);
+
+    await queuedJobs[0]();
+    expect(resendSendMock).toHaveBeenCalledTimes(2);
   });
 });

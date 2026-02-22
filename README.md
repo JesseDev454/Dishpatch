@@ -1,4 +1,4 @@
-# Dishpatch - Sprint 4
+# Dishpatch
 
 Dishpatch is a multi-tenant Food Ordering and Restaurant Management SaaS for restaurants in Nigeria.
 
@@ -15,7 +15,7 @@ Current implementation delivers:
 - Clear inline errors and success/error toast alerts in UI
 
 ## Tech Stack
-- Backend: Node.js, Express, TypeORM, MySQL
+- Backend: Node.js, Express, TypeORM, PostgreSQL (Neon in production)
 - Frontend: React, Vite, TypeScript
 - Auth: JWT access token + refresh token (refresh token in secure `httpOnly` cookie)
 
@@ -26,7 +26,7 @@ Current implementation delivers:
 ## Prerequisites
 - Node.js 20+
 - npm 10+
-- MySQL 8+
+- PostgreSQL 14+ (local dev/test) or Neon database URL
 
 ## Quick Start (Run Both Apps From Root)
 1. From project root:
@@ -48,7 +48,10 @@ Current implementation delivers:
    # Windows PowerShell
    Copy-Item backend/.env.test.example backend/.env.test
    ```
-2. Ensure MySQL test server is available (default test config: `localhost:3307`).
+2. Set `DATABASE_URL` in `backend/.env.test` (example):
+   ```env
+   DATABASE_URL=postgres://postgres:postgres@localhost:5432/dishpatch_test
+   ```
 3. Run backend tests:
    ```bash
    npm run test:backend
@@ -56,10 +59,9 @@ Current implementation delivers:
 
 Notes:
 - Tests run with `NODE_ENV=test`.
-- Test DB defaults to `dishpatch_test` (never the dev DB).
+- Test DB must be a dedicated database (`dishpatch_test` recommended, never dev DB).
 - Schema is created automatically before tests by running TypeORM migrations in Jest global setup.
-- Each test starts from a clean DB state (tables truncated in FK-safe order).
-- DB config supports both `DB_USER` and `DB_USERNAME`.
+- Each test starts from a clean DB state (Postgres truncate with `RESTART IDENTITY CASCADE`).
 
 ### Frontend
 Current frontend test command runs TypeScript checks:
@@ -168,10 +170,7 @@ Set in `backend/.env`:
    # Windows PowerShell
    Copy-Item .env.example .env
    ```
-4. Create MySQL database:
-   ```sql
-   CREATE DATABASE dishpatch;
-   ```
+4. Ensure `DATABASE_URL` points to your Postgres database (local or Neon).
 5. Run migrations:
    ```bash
    npm run migration:run
@@ -204,13 +203,8 @@ Vite proxies `/api/*` to backend (`http://localhost:4000`).
 ## Environment Variables (Backend)
 Set in `backend/.env`:
 - `PORT` (default `4000`)
-- `FRONTEND_URL` (default `http://localhost:5173`)
-- `DB_HOST`
-- `DB_PORT`
-- `DB_USER`
-- `DB_USERNAME` (optional alternative to `DB_USER`)
-- `DB_PASSWORD`
-- `DB_NAME`
+- `FRONTEND_URL` (single URL or comma-separated URLs, default `http://localhost:5173`)
+- `DATABASE_URL` (required in production)
 - `JWT_ACCESS_SECRET`
 - `JWT_REFRESH_SECRET`
 - `JWT_ACCESS_EXPIRES` (default `15m`)
@@ -220,6 +214,85 @@ Set in `backend/.env`:
 - `APP_BASE_URL` (default `http://localhost:5173`)
 - `ORDER_EXPIRY_MINUTES` (default `30`)
 - `ORDER_EXPIRY_JOB_INTERVAL_SECONDS` (default `60`)
+
+## Deployment (Neon + Render + Vercel)
+### 1) Neon (Database)
+1. Create a Neon Postgres project/database.
+2. Copy Neon connection string and include SSL mode:
+   ```env
+   DATABASE_URL=postgresql://<user>:<password>@<host>/<db>?sslmode=require
+   ```
+3. Use this `DATABASE_URL` on Render backend.
+
+### 2) Render (Backend)
+Create a Render Web Service from this repo with:
+- Root Directory: `backend`
+- Build Command: `npm install && npm run build`
+- Start Command: `npm run start:render`
+- Auto Deploy: enabled
+
+Render env vars:
+```env
+NODE_ENV=production
+PORT=10000
+DATABASE_URL=postgresql://<user>:<password>@<host>/<db>?sslmode=require
+FRONTEND_URL=https://dishpatch.vercel.app
+JWT_ACCESS_SECRET=<strong-secret>
+JWT_REFRESH_SECRET=<strong-secret>
+JWT_ACCESS_EXPIRES=15m
+JWT_REFRESH_EXPIRES=7d
+PAYSTACK_SECRET_KEY=sk_test_...
+PAYSTACK_CALLBACK_URL=https://dishpatch.vercel.app/payment/callback
+PAYSTACK_BASE_URL=https://api.paystack.co
+RESEND_API_KEY=re_...
+EMAIL_FROM="Dishpatch <onboarding@resend.dev>"
+APP_BASE_URL=https://dishpatch.vercel.app
+ORDER_EXPIRY_MINUTES=30
+ORDER_EXPIRY_JOB_INTERVAL_SECONDS=60
+```
+
+Notes:
+- Backend is Postgres-only and reads `DATABASE_URL`.
+- `start:render` runs migrations before starting the server.
+- CORS and Socket.IO origin checks use `FRONTEND_URL`.
+
+### 3) Vercel (Frontend)
+Create a Vercel project for `frontend` only:
+- Framework Preset: `Vite`
+- Root Directory: `frontend`
+- Install Command: `npm install`
+- Build Command: `npm run build`
+- Output Directory: `dist`
+
+Vercel env vars:
+```env
+VITE_API_BASE_URL=https://dishpatch-8g6e.onrender.com
+VITE_SOCKET_URL=https://dishpatch-8g6e.onrender.com
+```
+
+Frontend routes (`/payment/callback`, `/receipt/:reference`, etc.) are handled by SPA rewrite in `frontend/vercel.json`.
+
+### 4) Paystack + Resend URLs
+- Paystack callback URL:
+  - `https://dishpatch.vercel.app/payment/callback`
+- Paystack webhook URL:
+  - `https://dishpatch-8g6e.onrender.com/webhooks/paystack`
+- Receipt links in emails:
+  - `${APP_BASE_URL}/receipt/<reference>` (set `APP_BASE_URL` to Vercel URL)
+
+### 5) Common Vercel Monorepo Fixes
+- Ensure project Root Directory is `frontend` (not repo root).
+- Ensure `VITE_*` env vars are defined in Vercel Project Settings.
+- Do not run backend scripts on Vercel.
+- Use `import.meta.env.VITE_*` (not `process.env`) in frontend code.
+- Re-deploy after changing env vars.
+
+### 6) Current Production Wiring
+- Backend (Render): `https://dishpatch-8g6e.onrender.com`
+- Frontend (Vercel): `https://dishpatch.vercel.app`
+- Paystack callback: `https://dishpatch.vercel.app/payment/callback`
+- Paystack webhook: `https://dishpatch-8g6e.onrender.com/webhooks/paystack`
+- Receipt URL pattern: `https://dishpatch.vercel.app/receipt/<reference>`
 
 ## API Endpoints
 ### Auth
@@ -288,6 +361,17 @@ Set in `backend/.env`:
 4. Run valid transitions (`PAID -> ACCEPTED -> PREPARING -> READY -> COMPLETED`) and verify updates broadcast in both sessions.
 5. Attempt status update on another restaurant's order and verify request fails (404/403).
 6. Filter `GET /orders` by status and confirm only requested statuses are returned.
+
+## Deployment Verification Checklist
+1. Open frontend on Vercel and register/login.
+2. Create categories/items in dashboard.
+3. Open public restaurant page and create an order.
+4. Initialize Paystack and complete test payment.
+5. Confirm Render receives webhook (`/webhooks/paystack`) and order moves to `PAID`.
+6. Confirm Live Orders dashboard updates in realtime via Socket.IO.
+7. Confirm callback redirects to receipt and `/receipt/:reference` loads.
+8. Confirm Resend email includes receipt link to Vercel domain.
+9. Confirm stale pending orders auto-transition to `EXPIRED` after configured threshold.
 
 ## Notes
 - Passwords are hashed with `bcryptjs`.

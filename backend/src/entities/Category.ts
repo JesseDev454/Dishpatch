@@ -27,10 +27,10 @@ export class Category {
   @Column({ type: "int", default: 0 })
   sortOrder!: number;
 
-  @CreateDateColumn({ type: "timestamp" })
+  @CreateDateColumn({ type: "timestamptz" })
   createdAt!: Date;
 
-  @UpdateDateColumn({ type: "timestamp" })
+  @UpdateDateColumn({ type: "timestamptz" })
   updatedAt!: Date;
 
   @ManyToOne(() => Restaurant, (restaurant) => restaurant.categories, { onDelete: "CASCADE" })

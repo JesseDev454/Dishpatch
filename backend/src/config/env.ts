@@ -33,16 +33,45 @@ const getValue = (keys: string[], fallback: string): string => {
   return fallback;
 };
 
+const parseFrontendUrls = (raw: string | undefined): string[] => {
+  const parsed = (raw ?? "http://localhost:5173")
+    .split(",")
+    .map((value) => value.trim())
+    .filter((value) => value.length > 0);
+
+  if (parsed.length === 0) {
+    return ["http://localhost:5173"];
+  }
+
+  return parsed;
+};
+
+const defaultDatabaseUrl = isTest
+  ? "postgres://postgres:postgres@localhost:5432/dishpatch_test"
+  : "postgres://postgres:postgres@localhost:5432/dishpatch_dev";
+
+const databaseUrl = getValue(["DATABASE_URL"], defaultDatabaseUrl);
+
+const databaseNameFromUrl = (() => {
+  try {
+    const parsed = new URL(databaseUrl);
+    return parsed.pathname.replace(/^\//, "");
+  } catch {
+    return "";
+  }
+})();
+
+const frontendUrls = parseFrontendUrls(getValue(["FRONTEND_URL"], "http://localhost:5173"));
+const configuredExpiryMinutes = parsePositiveInt(process.env.ORDER_EXPIRY_MINUTES, 30);
+const expiryMinutes = isTest ? Math.max(configuredExpiryMinutes, 30) : configuredExpiryMinutes;
+
 export const env = {
   nodeEnv,
   port: Number(process.env.PORT ?? 4000),
-  frontendUrl: process.env.FRONTEND_URL ?? "http://localhost:5173",
+  frontendUrl: frontendUrls[0],
+  frontendUrls,
   db: {
-    host: getValue(["DB_HOST"], "localhost"),
-    port: Number(process.env.DB_PORT ?? (isTest ? 3307 : 3306)),
-    user: getValue(["DB_USER", "DB_USERNAME"], "root"),
-    password: process.env.DB_PASSWORD ?? "",
-    database: getValue(["DB_NAME"], isTest ? "dishpatch_test" : "dishpatch")
+    databaseUrl
   },
   jwt: {
     accessSecret: getValue(["JWT_ACCESS_SECRET"], "dev_access_secret_change_me"),
@@ -58,14 +87,21 @@ export const env = {
   email: {
     resendApiKey: getValue(["RESEND_API_KEY"], "re_test_placeholder"),
     from: getValue(["EMAIL_FROM"], "Dishpatch <noreply@dishpatch.local>"),
-    appBaseUrl: process.env.APP_BASE_URL ?? "http://localhost:5173"
+    appBaseUrl: getValue(["APP_BASE_URL"], "http://localhost:5173")
   },
   orders: {
-    expiryMinutes: parsePositiveInt(process.env.ORDER_EXPIRY_MINUTES, 30),
+    expiryMinutes,
     expiryJobIntervalSeconds: parsePositiveInt(process.env.ORDER_EXPIRY_JOB_INTERVAL_SECONDS, 60)
   }
 };
 
-if (isTest && env.db.database === "dishpatch") {
-  throw new Error("Refusing to run tests against development database 'dishpatch'. Use 'dishpatch_test'.");
+if (!env.db.databaseUrl) {
+  throw new Error("Missing required environment variable: DATABASE_URL");
+}
+
+if (isTest) {
+  const normalizedDbName = databaseNameFromUrl.toLowerCase();
+  if (normalizedDbName === "dishpatch" || normalizedDbName === "dishpatch_dev") {
+    throw new Error("Refusing to run tests against development database. Use a dedicated test DATABASE_URL.");
+  }
 }

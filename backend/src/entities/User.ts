@@ -31,10 +31,10 @@ export class User {
   @Column({ type: "enum", enum: ["ADMIN"], default: "ADMIN" })
   role!: UserRole;
 
-  @CreateDateColumn({ type: "timestamp" })
+  @CreateDateColumn({ type: "timestamptz" })
   createdAt!: Date;
 
-  @UpdateDateColumn({ type: "timestamp" })
+  @UpdateDateColumn({ type: "timestamptz" })
   updatedAt!: Date;
 
   @ManyToOne(() => Restaurant, (restaurant) => restaurant.users, { onDelete: "CASCADE" })

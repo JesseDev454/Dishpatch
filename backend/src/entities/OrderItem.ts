@@ -36,10 +36,10 @@ export class OrderItem {
   @Column({ type: "decimal", precision: 10, scale: 2 })
   lineTotal!: string;
 
-  @CreateDateColumn({ type: "timestamp" })
+  @CreateDateColumn({ type: "timestamptz" })
   createdAt!: Date;
 
-  @UpdateDateColumn({ type: "timestamp" })
+  @UpdateDateColumn({ type: "timestamptz" })
   updatedAt!: Date;
 
   @ManyToOne(() => Order, (order) => order.orderItems, { onDelete: "CASCADE" })

@@ -16,6 +16,8 @@ type SocketAuthUser = {
 };
 
 const allowedOriginPattern = /^http:\/\/localhost:\d+$/;
+const normalizeOrigin = (origin: string): string => origin.replace(/\/$/, "");
+const allowedOrigins = new Set(env.frontendUrls.map(normalizeOrigin));
 
 const resolveToken = (socket: Socket): string | null => {
   const fromAuth =
@@ -63,7 +65,9 @@ export const createRealtimeServer = (httpServer: HttpServer): SocketIOServer => 
           return;
         }
 
-        if (origin === env.frontendUrl || (env.nodeEnv !== "production" && allowedOriginPattern.test(origin))) {
+        const normalizedOrigin = normalizeOrigin(origin);
+
+        if (allowedOrigins.has(normalizedOrigin) || (env.nodeEnv !== "production" && allowedOriginPattern.test(origin))) {
           callback(null, true);
           return;
         }

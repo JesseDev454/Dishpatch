@@ -14,10 +14,10 @@ export class AddPaymentsSprint31708900000000 implements MigrationInterface {
           { name: "reference", type: "varchar", length: "190", isNullable: false, isUnique: true },
           { name: "status", type: "enum", enum: ["PENDING", "SUCCESS", "FAILED"], default: "'PENDING'" },
           { name: "amountKobo", type: "int", isNullable: false },
-          { name: "paidAt", type: "timestamp", isNullable: true },
-          { name: "rawPayload", type: "json", isNullable: true },
-          { name: "createdAt", type: "timestamp", default: "CURRENT_TIMESTAMP" },
-          { name: "updatedAt", type: "timestamp", default: "CURRENT_TIMESTAMP", onUpdate: "CURRENT_TIMESTAMP" }
+          { name: "paidAt", type: "timestamptz", isNullable: true },
+          { name: "rawPayload", type: "jsonb", isNullable: true },
+          { name: "createdAt", type: "timestamptz", default: "CURRENT_TIMESTAMP" },
+          { name: "updatedAt", type: "timestamptz", default: "CURRENT_TIMESTAMP", onUpdate: "CURRENT_TIMESTAMP" }
         ]
       })
     );

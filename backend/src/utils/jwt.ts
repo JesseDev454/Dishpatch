@@ -33,20 +33,22 @@ export const verifyRefreshToken = (token: string): RefreshTokenPayload =>
   jwt.verify(token, env.jwt.refreshSecret) as RefreshTokenPayload;
 
 export const setRefreshCookie = (res: Response, refreshToken: string): void => {
+  const isProduction = env.nodeEnv === "production";
   res.cookie("refreshToken", refreshToken, {
     httpOnly: true,
-    sameSite: "lax",
-    secure: env.nodeEnv === "production",
+    sameSite: isProduction ? "none" : "lax",
+    secure: isProduction,
     maxAge: 7 * 24 * 60 * 60 * 1000,
     path: "/auth"
   });
 };
 
 export const clearRefreshCookie = (res: Response): void => {
+  const isProduction = env.nodeEnv === "production";
   res.clearCookie("refreshToken", {
     httpOnly: true,
-    sameSite: "lax",
-    secure: env.nodeEnv === "production",
+    sameSite: isProduction ? "none" : "lax",
+    secure: isProduction,
     path: "/auth"
   });
 };

@@ -21,8 +21,8 @@ export class AddOrdersSprint21708800000000 implements MigrationInterface {
           { name: "customerPhone", type: "varchar", length: "40", isNullable: false },
           { name: "deliveryAddress", type: "varchar", length: "255", isNullable: true },
           { name: "totalAmount", type: "decimal", precision: 10, scale: 2, default: "0.00", isNullable: false },
-          { name: "createdAt", type: "timestamp", default: "CURRENT_TIMESTAMP" },
-          { name: "updatedAt", type: "timestamp", default: "CURRENT_TIMESTAMP", onUpdate: "CURRENT_TIMESTAMP" }
+          { name: "createdAt", type: "timestamptz", default: "CURRENT_TIMESTAMP" },
+          { name: "updatedAt", type: "timestamptz", default: "CURRENT_TIMESTAMP", onUpdate: "CURRENT_TIMESTAMP" }
         ]
       })
     );
@@ -38,8 +38,8 @@ export class AddOrdersSprint21708800000000 implements MigrationInterface {
           { name: "unitPriceSnapshot", type: "decimal", precision: 10, scale: 2, isNullable: false },
           { name: "quantity", type: "int", isNullable: false },
           { name: "lineTotal", type: "decimal", precision: 10, scale: 2, isNullable: false },
-          { name: "createdAt", type: "timestamp", default: "CURRENT_TIMESTAMP" },
-          { name: "updatedAt", type: "timestamp", default: "CURRENT_TIMESTAMP", onUpdate: "CURRENT_TIMESTAMP" }
+          { name: "createdAt", type: "timestamptz", default: "CURRENT_TIMESTAMP" },
+          { name: "updatedAt", type: "timestamptz", default: "CURRENT_TIMESTAMP", onUpdate: "CURRENT_TIMESTAMP" }
         ]
       })
     );

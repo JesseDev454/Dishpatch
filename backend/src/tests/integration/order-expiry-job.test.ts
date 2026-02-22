@@ -62,12 +62,15 @@ describe("Order Expiry Job", () => {
     const orderRepo = AppDataSource.getRepository(Order);
     const oldDate = new Date(Date.now() - 31 * 60 * 1000);
 
-    await orderRepo.query("UPDATE `orders` SET `createdAt` = ?, `status` = 'PENDING_PAYMENT' WHERE `id` = ?", [
+    await orderRepo.query(`UPDATE "orders" SET "createdAt" = $1, "status" = 'PENDING_PAYMENT' WHERE "id" = $2`, [
       oldDate,
       pending.orderId
     ]);
-    await orderRepo.query("UPDATE `orders` SET `createdAt` = ?, `status` = 'PAID' WHERE `id` = ?", [oldDate, paid.orderId]);
-    await orderRepo.query("UPDATE `orders` SET `createdAt` = ?, `status` = 'FAILED_PAYMENT' WHERE `id` = ?", [
+    await orderRepo.query(`UPDATE "orders" SET "createdAt" = $1, "status" = 'PAID' WHERE "id" = $2`, [
+      oldDate,
+      paid.orderId
+    ]);
+    await orderRepo.query(`UPDATE "orders" SET "createdAt" = $1, "status" = 'FAILED_PAYMENT' WHERE "id" = $2`, [
       oldDate,
       failed.orderId
     ]);

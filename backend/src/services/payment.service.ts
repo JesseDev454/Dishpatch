@@ -8,11 +8,17 @@ import { assertOrderStatusTransition } from "../utils/order-state";
 import { toOrderSummary } from "../realtime/order-summary";
 import * as realtimeEmitter from "../realtime/realtime-emitter";
 import { EmailService } from "./email.service";
+import * as asyncJobs from "../jobs/async-jobs";
 
 type MarkSuccessResult = {
   payment: Payment;
   orderSummary: ReturnType<typeof toOrderSummary> | null;
-  emailContext: { order: Order } | null;
+  emailContext:
+    | {
+        order: Order;
+        payment: Payment;
+      }
+    | null;
 };
 
 export class PaymentService {
@@ -45,6 +51,68 @@ export class PaymentService {
     return order;
   }
 
+  private async persistPaymentEmailMetadata(
+    paymentId: number,
+    updates: Partial<
+      Pick<
+        Payment,
+        | "customerReceiptEmailMessageId"
+        | "customerReceiptEmailSentAt"
+        | "restaurantNotificationEmailMessageId"
+        | "restaurantNotificationEmailSentAt"
+      >
+    >
+  ): Promise<void> {
+    const paymentRepo = this.dataSource.getRepository(Payment);
+    await paymentRepo.update({ id: paymentId }, updates);
+  }
+
+  private dispatchPaymentSuccessEmails(emailContext: NonNullable<MarkSuccessResult["emailContext"]>): void {
+    asyncJobs.enqueueAsyncJob(async () => {
+      const { order, payment } = emailContext;
+
+      try {
+        const sent = await this.emailService.sendCustomerReceiptEmail(order, payment, order.restaurant);
+
+        if (sent) {
+          await this.persistPaymentEmailMetadata(payment.id, {
+            customerReceiptEmailMessageId: sent.messageId,
+            customerReceiptEmailSentAt: new Date()
+          });
+
+          console.info("Customer receipt email sent", {
+            orderId: order.id,
+            paymentReference: payment.reference,
+            recipient: sent.recipient,
+            resendMessageId: sent.messageId
+          });
+        }
+      } catch (error) {
+        console.error("Failed to send customer receipt email", error);
+      }
+
+      try {
+        const sent = await this.emailService.sendRestaurantNotificationEmail(order, payment, order.restaurant);
+
+        if (sent) {
+          await this.persistPaymentEmailMetadata(payment.id, {
+            restaurantNotificationEmailMessageId: sent.messageId,
+            restaurantNotificationEmailSentAt: new Date()
+          });
+
+          console.info("Restaurant notification email sent", {
+            orderId: order.id,
+            paymentReference: payment.reference,
+            recipient: sent.recipient,
+            resendMessageId: sent.messageId
+          });
+        }
+      } catch (error) {
+        console.error("Failed to send restaurant notification email", error);
+      }
+    });
+  }
+
   async createPendingPayment(order: Pick<Order, "id">): Promise<Payment> {
     const persistedOrder = await this.getOrderOrThrow(order.id);
 
@@ -72,6 +140,10 @@ export class PaymentService {
         existingPayment.amountKobo = convertNairaToKobo(persistedOrder.totalAmount);
         existingPayment.paidAt = null;
         existingPayment.rawPayload = null;
+        existingPayment.customerReceiptEmailMessageId = null;
+        existingPayment.customerReceiptEmailSentAt = null;
+        existingPayment.restaurantNotificationEmailMessageId = null;
+        existingPayment.restaurantNotificationEmailSentAt = null;
         return paymentRepo.save(existingPayment);
       }
     }
@@ -87,7 +159,11 @@ export class PaymentService {
       status: "PENDING",
       amountKobo: convertNairaToKobo(persistedOrder.totalAmount),
       paidAt: null,
-      rawPayload: null
+      rawPayload: null,
+      customerReceiptEmailMessageId: null,
+      customerReceiptEmailSentAt: null,
+      restaurantNotificationEmailMessageId: null,
+      restaurantNotificationEmailSentAt: null
     });
 
     return paymentRepo.save(payment);
@@ -142,7 +218,10 @@ export class PaymentService {
       return {
         payment,
         orderSummary: toOrderSummary(orderWithItems),
-        emailContext: { order: orderWithItems }
+        emailContext: {
+          order: orderWithItems,
+          payment
+        }
       };
     });
 
@@ -151,18 +230,7 @@ export class PaymentService {
     }
 
     if (result.emailContext) {
-      const { order } = result.emailContext;
-      try {
-        await this.emailService.sendCustomerReceiptEmail(order, result.payment, order.restaurant);
-      } catch (error) {
-        console.error("Failed to send customer receipt email", error);
-      }
-
-      try {
-        await this.emailService.sendRestaurantNotificationEmail(order, result.payment, order.restaurant);
-      } catch (error) {
-        console.error("Failed to send restaurant notification email", error);
-      }
+      this.dispatchPaymentSuccessEmails(result.emailContext);
     }
 
     return result.payment;

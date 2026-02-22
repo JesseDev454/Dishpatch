@@ -13,8 +13,8 @@ export class InitSprint11708700000000 implements MigrationInterface {
           { name: "slug", type: "varchar", length: "140", isNullable: false, isUnique: true },
           { name: "phone", type: "varchar", length: "30", isNullable: true },
           { name: "address", type: "varchar", length: "255", isNullable: true },
-          { name: "createdAt", type: "timestamp", default: "CURRENT_TIMESTAMP" },
-          { name: "updatedAt", type: "timestamp", default: "CURRENT_TIMESTAMP", onUpdate: "CURRENT_TIMESTAMP" }
+          { name: "createdAt", type: "timestamptz", default: "CURRENT_TIMESTAMP" },
+          { name: "updatedAt", type: "timestamptz", default: "CURRENT_TIMESTAMP", onUpdate: "CURRENT_TIMESTAMP" }
         ]
       })
     );
@@ -28,8 +28,8 @@ export class InitSprint11708700000000 implements MigrationInterface {
           { name: "email", type: "varchar", length: "190", isNullable: false, isUnique: true },
           { name: "passwordHash", type: "varchar", length: "255", isNullable: false },
           { name: "role", type: "enum", enum: ["ADMIN"], default: "'ADMIN'" },
-          { name: "createdAt", type: "timestamp", default: "CURRENT_TIMESTAMP" },
-          { name: "updatedAt", type: "timestamp", default: "CURRENT_TIMESTAMP", onUpdate: "CURRENT_TIMESTAMP" }
+          { name: "createdAt", type: "timestamptz", default: "CURRENT_TIMESTAMP" },
+          { name: "updatedAt", type: "timestamptz", default: "CURRENT_TIMESTAMP", onUpdate: "CURRENT_TIMESTAMP" }
         ]
       })
     );
@@ -42,8 +42,8 @@ export class InitSprint11708700000000 implements MigrationInterface {
           { name: "restaurantId", type: "int", isNullable: false },
           { name: "name", type: "varchar", length: "120", isNullable: false },
           { name: "sortOrder", type: "int", default: "0", isNullable: false },
-          { name: "createdAt", type: "timestamp", default: "CURRENT_TIMESTAMP" },
-          { name: "updatedAt", type: "timestamp", default: "CURRENT_TIMESTAMP", onUpdate: "CURRENT_TIMESTAMP" }
+          { name: "createdAt", type: "timestamptz", default: "CURRENT_TIMESTAMP" },
+          { name: "updatedAt", type: "timestamptz", default: "CURRENT_TIMESTAMP", onUpdate: "CURRENT_TIMESTAMP" }
         ]
       })
     );
@@ -59,8 +59,8 @@ export class InitSprint11708700000000 implements MigrationInterface {
           { name: "description", type: "text", isNullable: true },
           { name: "price", type: "decimal", precision: 10, scale: 2, default: "0.00", isNullable: false },
           { name: "isAvailable", type: "boolean", default: "true", isNullable: false },
-          { name: "createdAt", type: "timestamp", default: "CURRENT_TIMESTAMP" },
-          { name: "updatedAt", type: "timestamp", default: "CURRENT_TIMESTAMP", onUpdate: "CURRENT_TIMESTAMP" }
+          { name: "createdAt", type: "timestamptz", default: "CURRENT_TIMESTAMP" },
+          { name: "updatedAt", type: "timestamptz", default: "CURRENT_TIMESTAMP", onUpdate: "CURRENT_TIMESTAMP" }
         ]
       })
     );

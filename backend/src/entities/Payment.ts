@@ -38,16 +38,28 @@ export class Payment {
   @Column({ type: "int" })
   amountKobo!: number;
 
-  @Column({ type: "timestamp", nullable: true })
+  @Column({ type: "timestamptz", nullable: true })
   paidAt!: Date | null;
 
-  @Column({ type: "json", nullable: true })
+  @Column({ type: "jsonb", nullable: true })
   rawPayload!: Record<string, unknown> | null;
 
-  @CreateDateColumn({ type: "timestamp" })
+  @Column({ type: "varchar", length: 190, nullable: true })
+  customerReceiptEmailMessageId!: string | null;
+
+  @Column({ type: "timestamptz", nullable: true })
+  customerReceiptEmailSentAt!: Date | null;
+
+  @Column({ type: "varchar", length: 190, nullable: true })
+  restaurantNotificationEmailMessageId!: string | null;
+
+  @Column({ type: "timestamptz", nullable: true })
+  restaurantNotificationEmailSentAt!: Date | null;
+
+  @CreateDateColumn({ type: "timestamptz" })
   createdAt!: Date;
 
-  @UpdateDateColumn({ type: "timestamp" })
+  @UpdateDateColumn({ type: "timestamptz" })
   updatedAt!: Date;
 
   @OneToOne(() => Order, (order) => order.payment, { onDelete: "CASCADE" })

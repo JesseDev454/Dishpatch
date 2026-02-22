@@ -6,6 +6,7 @@ import { Payment } from "../../entities/Payment";
 import { registerAndGetToken } from "../helpers/auth";
 import { PaymentService } from "../../services/payment.service";
 import * as realtimeEmitter from "../../realtime/realtime-emitter";
+import * as asyncJobs from "../../jobs/async-jobs";
 
 const resendSendMock = jest.fn();
 
@@ -21,11 +22,19 @@ describe("PaymentService", () => {
   const app = createApp();
   const paymentService = new PaymentService(AppDataSource);
   const emitOrderPaidSpy = jest.spyOn(realtimeEmitter, "emitOrderPaid");
+  const enqueueAsyncJobSpy = jest.spyOn(asyncJobs, "enqueueAsyncJob");
+  const consoleInfoSpy = jest.spyOn(console, "info").mockImplementation(() => undefined);
 
   beforeEach(() => {
     emitOrderPaidSpy.mockClear();
+    enqueueAsyncJobSpy.mockClear();
+    consoleInfoSpy.mockClear();
     resendSendMock.mockReset();
     resendSendMock.mockResolvedValue({ id: "email_mock_id" });
+  });
+
+  afterAll(() => {
+    consoleInfoSpy.mockRestore();
   });
 
   const createPendingOrderFixture = async () => {
@@ -134,10 +143,35 @@ describe("PaymentService", () => {
     expect(persistedPayment.paidAt).toBeTruthy();
     expect(persistedPayment.rawPayload).toEqual(payload);
     expect(emitOrderPaidSpy).toHaveBeenCalledTimes(1);
+    expect(enqueueAsyncJobSpy).toHaveBeenCalledTimes(1);
     expect(emitOrderPaidSpy).toHaveBeenCalledWith(
       expect.objectContaining({
         id: order.id,
         status: "PAID"
+      })
+    );
+
+    await asyncJobs.waitForAsyncJobs();
+    const paymentWithEmailMetadata = await paymentRepo.findOneOrFail({ where: { id: payment.id } });
+    expect(paymentWithEmailMetadata.customerReceiptEmailMessageId).toBe("email_mock_id");
+    expect(paymentWithEmailMetadata.customerReceiptEmailSentAt).toBeTruthy();
+    expect(paymentWithEmailMetadata.restaurantNotificationEmailMessageId).toBe("email_mock_id");
+    expect(paymentWithEmailMetadata.restaurantNotificationEmailSentAt).toBeTruthy();
+    expect(consoleInfoSpy).toHaveBeenCalledWith(
+      "Customer receipt email sent",
+      expect.objectContaining({
+        orderId: order.id,
+        paymentReference: payment.reference,
+        recipient: "payment-customer@dishpatch.test",
+        resendMessageId: "email_mock_id"
+      })
+    );
+    expect(consoleInfoSpy).toHaveBeenCalledWith(
+      "Restaurant notification email sent",
+      expect.objectContaining({
+        orderId: order.id,
+        paymentReference: payment.reference,
+        resendMessageId: "email_mock_id"
       })
     );
     expect(resendSendMock).toHaveBeenCalledTimes(2);
@@ -174,6 +208,9 @@ describe("PaymentService", () => {
     expect(persistedAfterSecond.paidAt?.toISOString()).toBe(persistedAfterFirst.paidAt?.toISOString());
     expect(persistedAfterSecond.rawPayload).toEqual(firstPayload);
     expect(emitOrderPaidSpy).toHaveBeenCalledTimes(1);
+    expect(enqueueAsyncJobSpy).toHaveBeenCalledTimes(1);
+
+    await asyncJobs.waitForAsyncJobs();
     expect(resendSendMock).toHaveBeenCalledTimes(2);
 
     const orderRepo = AppDataSource.getRepository(Order);
@@ -181,21 +218,49 @@ describe("PaymentService", () => {
     expect(persistedOrder.status).toBe("PAID");
   });
 
-  it("does not fail payment success when email send errors", async () => {
+  it("queues email sending asynchronously after payment success", async () => {
+    const queuedJobs: Array<() => Promise<void>> = [];
+    enqueueAsyncJobSpy.mockImplementationOnce((job) => {
+      queuedJobs.push(job);
+    });
+
     const { order } = await createPendingOrderFixture();
     const payment = await paymentService.createPendingPayment({ id: order.id });
 
-    resendSendMock.mockRejectedValueOnce(new Error("email down"));
-    resendSendMock.mockRejectedValueOnce(new Error("email down"));
-
     const result = await paymentService.markPaymentSuccess(payment.reference, {
       event: "charge.success",
-      data: { via: "test" }
+      data: { via: "async-queue" }
     });
 
     expect(result.status).toBe("SUCCESS");
-    const orderRepo = AppDataSource.getRepository(Order);
-    const persistedOrder = await orderRepo.findOneOrFail({ where: { id: order.id } });
-    expect(persistedOrder.status).toBe("PAID");
+    expect(queuedJobs).toHaveLength(1);
+    expect(resendSendMock).toHaveBeenCalledTimes(0);
+
+    await queuedJobs[0]();
+    expect(resendSendMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("does not fail payment success when email send errors", async () => {
+    const { order } = await createPendingOrderFixture();
+    const payment = await paymentService.createPendingPayment({ id: order.id });
+    const consoleErrorSpy = jest.spyOn(console, "error").mockImplementation(() => undefined);
+
+    try {
+      resendSendMock.mockRejectedValueOnce(new Error("email down"));
+      resendSendMock.mockRejectedValueOnce(new Error("email down"));
+
+      const result = await paymentService.markPaymentSuccess(payment.reference, {
+        event: "charge.success",
+        data: { via: "test" }
+      });
+
+      expect(result.status).toBe("SUCCESS");
+      const orderRepo = AppDataSource.getRepository(Order);
+      const persistedOrder = await orderRepo.findOneOrFail({ where: { id: order.id } });
+      expect(persistedOrder.status).toBe("PAID");
+      await asyncJobs.waitForAsyncJobs();
+    } finally {
+      consoleErrorSpy.mockRestore();
+    }
   });
 });

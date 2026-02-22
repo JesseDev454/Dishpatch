@@ -5,6 +5,11 @@ import { Payment } from "../entities/Payment";
 import { Restaurant } from "../entities/Restaurant";
 import { OrderItem } from "../entities/OrderItem";
 
+export type SentEmailInfo = {
+  recipient: string;
+  messageId: string | null;
+};
+
 const escapeHtml = (value: string): string =>
   value
     .replace(/&/g, "&amp;")
@@ -20,6 +25,23 @@ const extractEmailAddress = (from: string): string | null => {
 };
 
 const formatNaira = (value: string): string => `NGN ${Number(value).toLocaleString(undefined, { minimumFractionDigits: 2 })}`;
+
+const extractMessageId = (response: unknown): string | null => {
+  if (!response || typeof response !== "object") {
+    return null;
+  }
+
+  const responseRecord = response as { id?: unknown; data?: { id?: unknown } | null };
+  if (typeof responseRecord.id === "string") {
+    return responseRecord.id;
+  }
+
+  if (responseRecord.data && typeof responseRecord.data.id === "string") {
+    return responseRecord.data.id;
+  }
+
+  return null;
+};
 
 const renderItemsTableRows = (items: OrderItem[]): string =>
   items
@@ -86,13 +108,13 @@ export class EmailService {
     order: Order & { orderItems: OrderItem[] },
     payment: Payment,
     restaurant: Restaurant
-  ): Promise<void> {
+  ): Promise<SentEmailInfo | null> {
     if (!order.customerEmail) {
-      return;
+      return null;
     }
 
     const receiptLink = `${this.appBaseUrl}/receipt/${payment.reference}`;
-    await this.resend.emails.send({
+    const response = await this.resend.emails.send({
       from: this.from,
       to: order.customerEmail,
       subject: `Your Dishpatch receipt for Order #${order.id}`,
@@ -104,19 +126,24 @@ export class EmailService {
         receiptLink
       })
     });
+
+    return {
+      recipient: order.customerEmail,
+      messageId: extractMessageId(response)
+    };
   }
 
   async sendRestaurantNotificationEmail(
     order: Order & { orderItems: OrderItem[] },
     payment: Payment,
     restaurant: Restaurant
-  ): Promise<void> {
+  ): Promise<SentEmailInfo | null> {
     if (!this.restaurantNotificationTo) {
-      return;
+      return null;
     }
 
     const receiptLink = `${this.appBaseUrl}/receipt/${payment.reference}`;
-    await this.resend.emails.send({
+    const response = await this.resend.emails.send({
       from: this.from,
       to: this.restaurantNotificationTo,
       subject: `New paid order #${order.id} at ${restaurant.name}`,
@@ -128,5 +155,10 @@ export class EmailService {
         receiptLink
       })
     });
+
+    return {
+      recipient: this.restaurantNotificationTo,
+      messageId: extractMessageId(response)
+    };
   }
 }

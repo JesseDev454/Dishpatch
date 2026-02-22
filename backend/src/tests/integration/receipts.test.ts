@@ -19,10 +19,15 @@ jest.mock("resend", () => ({
 describe("Public Receipts", () => {
   const app = createApp();
   const paymentService = new PaymentService(AppDataSource);
+  const consoleInfoSpy = jest.spyOn(console, "info").mockImplementation(() => undefined);
 
   beforeEach(() => {
     resendSendMock.mockReset();
     resendSendMock.mockResolvedValue({ id: "email_mock_id" });
+  });
+
+  afterAll(() => {
+    consoleInfoSpy.mockRestore();
   });
 
   const createReceiptFixture = async (

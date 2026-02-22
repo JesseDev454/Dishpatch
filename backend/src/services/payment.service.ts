@@ -7,12 +7,21 @@ import { convertNairaToKobo } from "../utils/money";
 import { assertOrderStatusTransition } from "../utils/order-state";
 import { toOrderSummary } from "../realtime/order-summary";
 import * as realtimeEmitter from "../realtime/realtime-emitter";
+import { EmailService } from "./email.service";
+
+type MarkSuccessResult = {
+  payment: Payment;
+  orderSummary: ReturnType<typeof toOrderSummary> | null;
+  emailContext: { order: Order } | null;
+};
 
 export class PaymentService {
   private dataSource: DataSource;
+  private emailService: EmailService;
 
-  constructor(dataSource: DataSource = AppDataSource) {
+  constructor(dataSource: DataSource = AppDataSource, emailService: EmailService = new EmailService()) {
     this.dataSource = dataSource;
+    this.emailService = emailService;
   }
 
   private async generateReference(): Promise<string> {
@@ -85,7 +94,7 @@ export class PaymentService {
   }
 
   async markPaymentSuccess(reference: string, payload: Record<string, unknown>): Promise<Payment> {
-    const result = await this.dataSource.transaction(async (trx) => {
+    const result = await this.dataSource.transaction<MarkSuccessResult>(async (trx) => {
       const paymentRepo = trx.getRepository(Payment);
       const orderRepo = trx.getRepository(Order);
 
@@ -97,7 +106,8 @@ export class PaymentService {
       if (payment.status === "SUCCESS") {
         return {
           payment,
-          orderSummary: null as ReturnType<typeof toOrderSummary> | null
+          orderSummary: null,
+          emailContext: null
         };
       }
 
@@ -118,21 +128,41 @@ export class PaymentService {
 
       const orderWithItems = await orderRepo.findOne({
         where: { id: order.id },
-        relations: { orderItems: true }
+        relations: { orderItems: true, restaurant: true }
       });
 
       if (!orderWithItems) {
         throw new Error("Order not found");
       }
 
+      if (!orderWithItems.restaurant) {
+        throw new Error("Restaurant not found");
+      }
+
       return {
         payment,
-        orderSummary: toOrderSummary(orderWithItems)
+        orderSummary: toOrderSummary(orderWithItems),
+        emailContext: { order: orderWithItems }
       };
     });
 
     if (result.orderSummary) {
       realtimeEmitter.emitOrderPaid(result.orderSummary);
+    }
+
+    if (result.emailContext) {
+      const { order } = result.emailContext;
+      try {
+        await this.emailService.sendCustomerReceiptEmail(order, result.payment, order.restaurant);
+      } catch (error) {
+        console.error("Failed to send customer receipt email", error);
+      }
+
+      try {
+        await this.emailService.sendRestaurantNotificationEmail(order, result.payment, order.restaurant);
+      } catch (error) {
+        console.error("Failed to send restaurant notification email", error);
+      }
     }
 
     return result.payment;

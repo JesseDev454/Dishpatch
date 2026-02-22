@@ -6,9 +6,24 @@ import { AppDataSource } from "../../config/data-source";
 import { Payment } from "../../entities/Payment";
 import { Order } from "../../entities/Order";
 
+const resendSendMock = jest.fn();
+
+jest.mock("resend", () => ({
+  Resend: jest.fn().mockImplementation(() => ({
+    emails: {
+      send: resendSendMock
+    }
+  }))
+}));
+
 describe("Public Receipts", () => {
   const app = createApp();
   const paymentService = new PaymentService(AppDataSource);
+
+  beforeEach(() => {
+    resendSendMock.mockReset();
+    resendSendMock.mockResolvedValue({ id: "email_mock_id" });
+  });
 
   const createReceiptFixture = async (
     paymentStatus: "SUCCESS" | "FAILED" | "PENDING" = "SUCCESS",

@@ -9,6 +9,7 @@ Current implementation delivers:
 - Tenant-scoped item CRUD with availability toggle
 - Public menu + order creation
 - Paystack payment initialization/verification/webhook
+- Transactional email receipts and paid-order notifications via Resend
 - Automatic pending-order expiry (30 minutes default) with realtime `order:updated` events
 - Live Orders realtime dashboard via Socket.IO
 - Clear inline errors and success/error toast alerts in UI
@@ -101,6 +102,28 @@ Use the ngrok URLs for:
 5. If verification fails, callback page shows `Payment not confirmed` with `Retry` and `Back to restaurant` options.
 6. For webhook testing, register `POST /webhooks/paystack` in Paystack dashboard and confirm signature verification.
 
+## Email Notifications (Sprint 5b)
+### Required Env Vars (Backend)
+Set in `backend/.env`:
+- `RESEND_API_KEY`
+- `EMAIL_FROM` (for example: `Dishpatch <noreply@yourdomain.com>`)
+- `APP_BASE_URL` (for example: `http://localhost:5173`)
+
+### Resend Setup
+1. Create a Resend account at `https://resend.com`.
+2. Generate an API key from the Resend dashboard.
+3. Add and verify your sending domain in Resend.
+4. Set `EMAIL_FROM` to a verified sender address on that domain.
+
+### Local Testing
+1. Set the env vars above in `backend/.env`.
+2. Complete a successful payment flow from `/r/:slug`.
+3. Confirm customer receipt email includes:
+   - Restaurant name
+   - Order details and items
+   - Receipt link: `${APP_BASE_URL}/receipt/:reference`
+4. Trigger the same success path again (duplicate webhook/verify) and confirm emails are not sent twice.
+
 ## Realtime Orders (Sprint 4)
 ### What Was Added
 - Backend Socket.IO server with JWT-protected handshake auth
@@ -192,6 +215,9 @@ Set in `backend/.env`:
 - `JWT_REFRESH_SECRET`
 - `JWT_ACCESS_EXPIRES` (default `15m`)
 - `JWT_REFRESH_EXPIRES` (default `7d`)
+- `RESEND_API_KEY`
+- `EMAIL_FROM`
+- `APP_BASE_URL` (default `http://localhost:5173`)
 - `ORDER_EXPIRY_MINUTES` (default `30`)
 - `ORDER_EXPIRY_JOB_INTERVAL_SECONDS` (default `60`)
 

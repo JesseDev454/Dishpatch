@@ -11,6 +11,16 @@ import { env } from "../../config/env";
 
 jest.mock("axios");
 
+const resendSendMock = jest.fn();
+
+jest.mock("resend", () => ({
+  Resend: jest.fn().mockImplementation(() => ({
+    emails: {
+      send: resendSendMock
+    }
+  }))
+}));
+
 const mockedAxios = axios as jest.Mocked<typeof axios>;
 
 describe("Paystack Integration", () => {
@@ -26,6 +36,8 @@ describe("Paystack Integration", () => {
   beforeEach(() => {
     postMock.mockReset();
     getMock.mockReset();
+    resendSendMock.mockReset();
+    resendSendMock.mockResolvedValue({ id: "email_mock_id" });
     mockedAxios.create.mockReturnValue({ post: postMock, get: getMock } as any);
   });
 
@@ -427,6 +439,7 @@ describe("Paystack Integration", () => {
       .set("Content-Type", "application/json")
       .send(JSON.stringify(payload));
     expect(first.status).toBe(200);
+    expect(resendSendMock).toHaveBeenCalledTimes(2);
 
     const paymentRepo = AppDataSource.getRepository(Payment);
     const beforeDuplicate = await paymentRepo.findOneOrFail({ where: { id: payment.id } });
@@ -441,6 +454,7 @@ describe("Paystack Integration", () => {
     const afterDuplicate = await paymentRepo.findOneOrFail({ where: { id: payment.id } });
     expect(afterDuplicate.status).toBe("SUCCESS");
     expect(afterDuplicate.paidAt?.toISOString()).toBe(beforeDuplicate.paidAt?.toISOString());
+    expect(resendSendMock).toHaveBeenCalledTimes(2);
   });
 
   it("webhook success after verify success does not duplicate update", async () => {
@@ -462,6 +476,7 @@ describe("Paystack Integration", () => {
 
     const verifyResponse = await request(app).get(`/public/payments/paystack/verify?reference=${payment.reference}`);
     expect(verifyResponse.status).toBe(200);
+    expect(resendSendMock).toHaveBeenCalledTimes(2);
 
     const paymentRepo = AppDataSource.getRepository(Payment);
     const beforeWebhook = await paymentRepo.findOneOrFail({ where: { id: payment.id } });
@@ -481,6 +496,7 @@ describe("Paystack Integration", () => {
     const afterWebhook = await paymentRepo.findOneOrFail({ where: { id: payment.id } });
     expect(afterWebhook.status).toBe("SUCCESS");
     expect(afterWebhook.paidAt?.toISOString()).toBe(beforeWebhook.paidAt?.toISOString());
+    expect(resendSendMock).toHaveBeenCalledTimes(2);
   });
 
   it("webhook rejects invalid signature", async () => {

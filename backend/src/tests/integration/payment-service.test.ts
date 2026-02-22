@@ -7,6 +7,16 @@ import { registerAndGetToken } from "../helpers/auth";
 import { PaymentService } from "../../services/payment.service";
 import * as realtimeEmitter from "../../realtime/realtime-emitter";
 
+const resendSendMock = jest.fn();
+
+jest.mock("resend", () => ({
+  Resend: jest.fn().mockImplementation(() => ({
+    emails: {
+      send: resendSendMock
+    }
+  }))
+}));
+
 describe("PaymentService", () => {
   const app = createApp();
   const paymentService = new PaymentService(AppDataSource);
@@ -14,6 +24,8 @@ describe("PaymentService", () => {
 
   beforeEach(() => {
     emitOrderPaidSpy.mockClear();
+    resendSendMock.mockReset();
+    resendSendMock.mockResolvedValue({ id: "email_mock_id" });
   });
 
   const createPendingOrderFixture = async () => {
@@ -47,6 +59,7 @@ describe("PaymentService", () => {
         type: "PICKUP",
         customerName: "Payment Customer",
         customerPhone: "08090000000",
+        customerEmail: "payment-customer@dishpatch.test",
         deliveryAddress: null,
         items: [{ itemId: item.body.item.id, quantity: 1 }]
       });
@@ -127,6 +140,7 @@ describe("PaymentService", () => {
         status: "PAID"
       })
     );
+    expect(resendSendMock).toHaveBeenCalledTimes(2);
   });
 
   it("markPaymentFailed updates order status to FAILED_PAYMENT", async () => {
@@ -160,7 +174,26 @@ describe("PaymentService", () => {
     expect(persistedAfterSecond.paidAt?.toISOString()).toBe(persistedAfterFirst.paidAt?.toISOString());
     expect(persistedAfterSecond.rawPayload).toEqual(firstPayload);
     expect(emitOrderPaidSpy).toHaveBeenCalledTimes(1);
+    expect(resendSendMock).toHaveBeenCalledTimes(2);
 
+    const orderRepo = AppDataSource.getRepository(Order);
+    const persistedOrder = await orderRepo.findOneOrFail({ where: { id: order.id } });
+    expect(persistedOrder.status).toBe("PAID");
+  });
+
+  it("does not fail payment success when email send errors", async () => {
+    const { order } = await createPendingOrderFixture();
+    const payment = await paymentService.createPendingPayment({ id: order.id });
+
+    resendSendMock.mockRejectedValueOnce(new Error("email down"));
+    resendSendMock.mockRejectedValueOnce(new Error("email down"));
+
+    const result = await paymentService.markPaymentSuccess(payment.reference, {
+      event: "charge.success",
+      data: { via: "test" }
+    });
+
+    expect(result.status).toBe("SUCCESS");
     const orderRepo = AppDataSource.getRepository(Order);
     const persistedOrder = await orderRepo.findOneOrFail({ where: { id: order.id } });
     expect(persistedOrder.status).toBe("PAID");

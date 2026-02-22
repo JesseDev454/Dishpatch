@@ -55,6 +55,11 @@ export const env = {
     callbackUrl: getValue(["PAYSTACK_CALLBACK_URL"], "http://localhost:5173/payment/callback"),
     baseUrl: process.env.PAYSTACK_BASE_URL ?? "https://api.paystack.co"
   },
+  email: {
+    resendApiKey: getValue(["RESEND_API_KEY"], "re_test_placeholder"),
+    from: getValue(["EMAIL_FROM"], "Dishpatch <noreply@dishpatch.local>"),
+    appBaseUrl: process.env.APP_BASE_URL ?? "http://localhost:5173"
+  },
   orders: {
     expiryMinutes: parsePositiveInt(process.env.ORDER_EXPIRY_MINUTES, 30),
     expiryJobIntervalSeconds: parsePositiveInt(process.env.ORDER_EXPIRY_JOB_INTERVAL_SECONDS, 60)

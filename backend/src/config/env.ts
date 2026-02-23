@@ -18,6 +18,14 @@ const parsePositiveInt = (raw: string | undefined, fallback: number): number => 
   return fallback;
 };
 
+const parsePort = (raw: string | undefined, fallback: number): number => {
+  const parsed = Number(raw);
+  if (Number.isInteger(parsed) && parsed > 0) {
+    return parsed;
+  }
+  return fallback;
+};
+
 const getValue = (keys: string[], fallback: string): string => {
   for (const key of keys) {
     const raw = process.env[key];
@@ -46,13 +54,17 @@ const parseFrontendUrls = (raw: string | undefined): string[] => {
   return parsed;
 };
 
-const defaultDatabaseUrl = isTest
-  ? "postgres://postgres:postgres@localhost:5432/dishpatch_test"
-  : "postgres://postgres:postgres@localhost:5432/dishpatch_dev";
+const databaseUrl = process.env.DATABASE_URL?.trim() || null;
 
-const databaseUrl = getValue(["DATABASE_URL"], defaultDatabaseUrl);
+if (isProduction && !databaseUrl) {
+  throw new Error("Missing required environment variable: DATABASE_URL (Render/production must use Neon connection string).");
+}
 
 const databaseNameFromUrl = (() => {
+  if (!databaseUrl) {
+    return "";
+  }
+
   try {
     const parsed = new URL(databaseUrl);
     return parsed.pathname.replace(/^\//, "");
@@ -65,13 +77,21 @@ const frontendUrls = parseFrontendUrls(getValue(["FRONTEND_URL"], "http://localh
 const configuredExpiryMinutes = parsePositiveInt(process.env.ORDER_EXPIRY_MINUTES, 30);
 const expiryMinutes = isTest ? Math.max(configuredExpiryMinutes, 30) : configuredExpiryMinutes;
 
+const fallbackDatabaseName = process.env.DB_NAME ?? (isTest ? "dishpatch_test" : "dishpatch_dev");
+const fallbackDbUser = process.env.DB_USER ?? process.env.DB_USERNAME ?? "postgres";
+
 export const env = {
   nodeEnv,
   port: Number(process.env.PORT ?? 4000),
   frontendUrl: frontendUrls[0],
   frontendUrls,
   db: {
-    databaseUrl
+    databaseUrl,
+    host: process.env.DB_HOST ?? "127.0.0.1",
+    port: parsePort(process.env.DB_PORT, 5432),
+    user: fallbackDbUser,
+    password: process.env.DB_PASSWORD ?? "postgres",
+    database: fallbackDatabaseName
   },
   jwt: {
     accessSecret: getValue(["JWT_ACCESS_SECRET"], "dev_access_secret_change_me"),
@@ -95,12 +115,8 @@ export const env = {
   }
 };
 
-if (!env.db.databaseUrl) {
-  throw new Error("Missing required environment variable: DATABASE_URL");
-}
-
 if (isTest) {
-  const normalizedDbName = databaseNameFromUrl.toLowerCase();
+  const normalizedDbName = (databaseNameFromUrl || env.db.database).toLowerCase();
   if (normalizedDbName === "dishpatch" || normalizedDbName === "dishpatch_dev") {
     throw new Error("Refusing to run tests against development database. Use a dedicated test DATABASE_URL.");
   }

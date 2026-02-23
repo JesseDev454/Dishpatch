@@ -14,13 +14,22 @@ import { AddPaymentsSprint31708900000000 } from "../migrations/1708900000000-Add
 import { AddExpiredOrderStatus1709000000000 } from "../migrations/1709000000000-AddExpiredOrderStatus";
 import { AddPaymentEmailMetadata1709100000000 } from "../migrations/1709100000000-AddPaymentEmailMetadata";
 
+const connectionOptions = env.db.databaseUrl
+  ? {
+      url: env.db.databaseUrl,
+      ssl: env.nodeEnv === "production" ? { rejectUnauthorized: false } : undefined
+    }
+  : {
+      host: env.db.host,
+      port: env.db.port,
+      username: env.db.user,
+      password: env.db.password,
+      database: env.db.database
+    };
+
 export const AppDataSource = new DataSource({
   type: "postgres",
-  url: env.db.databaseUrl,
-
-  // Neon/Render: SSL is commonly required.
-  // If your DATABASE_URL already includes ?sslmode=require, this may still be needed on some hosts.
-  ssl: env.nodeEnv === "production" ? { rejectUnauthorized: false } : undefined,
+  ...connectionOptions,
 
   entities: [Restaurant, User, Category, Item, Order, OrderItem, Payment],
   migrations: [

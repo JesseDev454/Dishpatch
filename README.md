@@ -253,6 +253,7 @@ ORDER_EXPIRY_JOB_INTERVAL_SECONDS=60
 
 Notes:
 - Backend is Postgres-only and reads `DATABASE_URL`.
+- In `NODE_ENV=production`, startup and migrations fail fast if `DATABASE_URL` is missing.
 - `start:render` runs migrations before starting the server.
 - CORS and Socket.IO origin checks use `FRONTEND_URL`.
 

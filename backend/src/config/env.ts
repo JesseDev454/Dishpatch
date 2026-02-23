@@ -109,6 +109,11 @@ export const env = {
     from: getValue(["EMAIL_FROM"], "Dishpatch <noreply@dishpatch.local>"),
     appBaseUrl: getValue(["APP_BASE_URL"], "http://localhost:5173")
   },
+  cloudinary: {
+    cloudName: process.env.CLOUDINARY_CLOUD_NAME?.trim() ?? "",
+    apiKey: process.env.CLOUDINARY_API_KEY?.trim() ?? "",
+    apiSecret: process.env.CLOUDINARY_API_SECRET?.trim() ?? ""
+  },
   orders: {
     expiryMinutes,
     expiryJobIntervalSeconds: parsePositiveInt(process.env.ORDER_EXPIRY_JOB_INTERVAL_SECONDS, 60)

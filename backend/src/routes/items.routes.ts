@@ -1,12 +1,48 @@
-import { Router } from "express";
+import { Request, Response, Router } from "express";
+import multer from "multer";
 import { z } from "zod";
 import { AppDataSource } from "../config/data-source";
 import { Item } from "../entities/Item";
 import { Category } from "../entities/Category";
 import { HttpError } from "../middleware/error-handler";
 import { requireAuth } from "../middleware/auth";
+import { ImageUploadService } from "../services/image-upload.service";
 
 const router = Router();
+const MAX_IMAGE_SIZE_BYTES = 2 * 1024 * 1024;
+const ALLOWED_IMAGE_MIME_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
+
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: MAX_IMAGE_SIZE_BYTES
+  },
+  fileFilter: (_req, file, callback) => {
+    if (!ALLOWED_IMAGE_MIME_TYPES.has(file.mimetype)) {
+      callback(new HttpError(400, "Only JPEG, PNG, and WEBP images are allowed"));
+      return;
+    }
+    callback(null, true);
+  }
+});
+
+const runItemImageUpload = async (req: Request, res: Response): Promise<void> => {
+  await new Promise<void>((resolve, reject) => {
+    upload.single("image")(req, res, (error: unknown) => {
+      if (!error) {
+        resolve();
+        return;
+      }
+
+      if (error instanceof multer.MulterError && error.code === "LIMIT_FILE_SIZE") {
+        reject(new HttpError(400, "Image size must be 2MB or less"));
+        return;
+      }
+
+      reject(error);
+    });
+  });
+};
 
 const createSchema = z.object({
   categoryId: z.number().int().positive(),
@@ -91,6 +127,7 @@ router.post("/", async (req, res, next) => {
       name: parsed.name,
       description: parsed.description ?? null,
       price: parsed.price.toFixed(2),
+      imageUrl: null,
       isAvailable: parsed.isAvailable
     });
 
@@ -152,6 +189,74 @@ router.patch("/:id", async (req, res, next) => {
       item.isAvailable = parsed.isAvailable;
     }
 
+    const saved = await repo.save(item);
+    res.json({ item: saved });
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.post("/:id/image", async (req, res, next) => {
+  try {
+    const id = Number(req.params.id);
+    if (!Number.isInteger(id)) {
+      throw new HttpError(400, "Invalid item id");
+    }
+
+    await runItemImageUpload(req, res);
+
+    if (!req.file) {
+      throw new HttpError(400, "Image file is required");
+    }
+
+    const repo = AppDataSource.getRepository(Item);
+    const item = await repo.findOne({ where: { id, restaurantId: req.authUser!.restaurantId } });
+
+    if (!item) {
+      throw new HttpError(404, "Item not found");
+    }
+
+    const imageUploadService = new ImageUploadService();
+    let uploadedImage: { secureUrl: string };
+
+    try {
+      uploadedImage = await imageUploadService.uploadItemImage({
+        buffer: req.file.buffer,
+        mimeType: req.file.mimetype,
+        restaurantId: req.authUser!.restaurantId,
+        itemId: item.id
+      });
+    } catch (error) {
+      if (error instanceof Error && error.message === "Cloudinary is not configured") {
+        throw new HttpError(500, "Image upload service is not configured");
+      }
+
+      throw new HttpError(502, "Failed to upload image");
+    }
+
+    item.imageUrl = uploadedImage.secureUrl;
+    const saved = await repo.save(item);
+
+    res.json({ item: saved });
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.delete("/:id/image", async (req, res, next) => {
+  try {
+    const id = Number(req.params.id);
+    if (!Number.isInteger(id)) {
+      throw new HttpError(400, "Invalid item id");
+    }
+
+    const repo = AppDataSource.getRepository(Item);
+    const item = await repo.findOne({ where: { id, restaurantId: req.authUser!.restaurantId } });
+    if (!item) {
+      throw new HttpError(404, "Item not found");
+    }
+
+    item.imageUrl = null;
     const saved = await repo.save(item);
     res.json({ item: saved });
   } catch (error) {

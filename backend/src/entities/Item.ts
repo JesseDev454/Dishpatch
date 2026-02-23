@@ -35,6 +35,9 @@ export class Item {
   @Column({ type: "decimal", precision: 10, scale: 2 })
   price!: string;
 
+  @Column({ type: "varchar", length: 500, nullable: true })
+  imageUrl!: string | null;
+
   @Column({ type: "boolean", default: true })
   isAvailable!: boolean;
 

@@ -101,6 +101,7 @@ router.get("/restaurants/:slug/menu", async (req, res, next) => {
           name: item.name,
           description: item.description,
           price: item.price,
+          imageUrl: item.imageUrl,
           isAvailable: item.isAvailable
         }))
       }))

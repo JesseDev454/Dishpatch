@@ -29,6 +29,7 @@ export interface Item {
   name: string;
   description: string | null;
   price: string;
+  imageUrl: string | null;
   isAvailable: boolean;
   createdAt: string;
   updatedAt: string;

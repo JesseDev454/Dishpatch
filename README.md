@@ -7,6 +7,7 @@ Current implementation delivers:
 - Protected dashboard for categories/items
 - Tenant-scoped category CRUD
 - Tenant-scoped item CRUD with availability toggle
+- Item image upload + removal (Cloudinary-backed) and public menu image display
 - Public menu + order creation
 - Paystack payment initialization/verification/webhook
 - Transactional email receipts and paid-order notifications via Resend
@@ -103,6 +104,25 @@ Use the ngrok URLs for:
 4. Callback page shows `Processing payment...`, verifies via `/public/payments/paystack/verify`, then redirects to `/receipt/:reference` on success.
 5. If verification fails, callback page shows `Payment not confirmed` with `Retry` and `Back to restaurant` options.
 6. For webhook testing, register `POST /webhooks/paystack` in Paystack dashboard and confirm signature verification.
+
+## Item Images (Current)
+### Cloudinary Env Vars (Backend)
+Set in `backend/.env`:
+- `CLOUDINARY_CLOUD_NAME`
+- `CLOUDINARY_API_KEY`
+- `CLOUDINARY_API_SECRET`
+
+### Upload Rules
+- Accepted file types: `image/jpeg`, `image/png`, `image/webp`
+- Max size: `2MB`
+- Endpoint expects multipart field name: `image`
+
+### Admin Upload Flow
+1. Go to dashboard -> `Items`.
+2. Create an item (or edit/select an existing item).
+3. Upload image from item controls.
+4. Backend stores image in Cloudinary and saves `item.imageUrl`.
+5. Use `Remove image` to clear `imageUrl` when needed.
 
 ## Email Notifications (Sprint 5b)
 ### Required Env Vars (Backend)
@@ -212,6 +232,9 @@ Set in `backend/.env`:
 - `RESEND_API_KEY`
 - `EMAIL_FROM`
 - `APP_BASE_URL` (default `http://localhost:5173`)
+- `CLOUDINARY_CLOUD_NAME`
+- `CLOUDINARY_API_KEY`
+- `CLOUDINARY_API_SECRET`
 - `ORDER_EXPIRY_MINUTES` (default `30`)
 - `ORDER_EXPIRY_JOB_INTERVAL_SECONDS` (default `60`)
 
@@ -247,6 +270,9 @@ PAYSTACK_BASE_URL=https://api.paystack.co
 RESEND_API_KEY=re_...
 EMAIL_FROM="Dishpatch <onboarding@resend.dev>"
 APP_BASE_URL=https://dishpatch.vercel.app
+CLOUDINARY_CLOUD_NAME=<cloudinary-cloud-name>
+CLOUDINARY_API_KEY=<cloudinary-api-key>
+CLOUDINARY_API_SECRET=<cloudinary-api-secret>
 ORDER_EXPIRY_MINUTES=30
 ORDER_EXPIRY_JOB_INTERVAL_SECONDS=60
 ```
@@ -319,6 +345,8 @@ Frontend routes (`/payment/callback`, `/receipt/:reference`, etc.) are handled b
 - `POST /items`
 - `PATCH /items/:id`
 - `DELETE /items/:id`
+- `POST /items/:id/image` (multipart upload, field name `image`)
+- `DELETE /items/:id/image` (clear image URL)
 
 ### Orders (protected)
 - `GET /orders?status=PAID,ACCEPTED&limit=50&page=1`

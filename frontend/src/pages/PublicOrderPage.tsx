@@ -17,6 +17,7 @@ type PublicMenuItem = {
   name: string;
   description: string | null;
   price: string;
+  imageUrl: string | null;
   isAvailable: boolean;
 };
 
@@ -368,7 +369,15 @@ export const PublicOrderPage = () => {
                   const quantity = cart.find((line) => line.item.id === item.id)?.quantity ?? 0;
                   return (
                     <article key={item.id} className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
-                      <div className="mb-3 h-28 rounded-xl border border-sky-100 bg-gradient-to-br from-cyan-50 to-slate-100" />
+                      {item.imageUrl ? (
+                        <img
+                          src={item.imageUrl}
+                          alt={item.name}
+                          className="mb-3 h-28 w-full rounded-xl border border-sky-100 object-cover"
+                        />
+                      ) : (
+                        <div className="mb-3 h-28 rounded-xl border border-sky-100 bg-gradient-to-br from-cyan-50 to-slate-100" />
+                      )}
                       <div className="space-y-2">
                         <div className="flex items-start justify-between gap-2">
                           <h4 className="text-sm font-semibold text-slate-900">{item.name}</h4>
@@ -414,7 +423,7 @@ export const PublicOrderPage = () => {
         className="focus-ring fixed bottom-5 right-4 z-40 rounded-full bg-brand-500 px-4 py-3 text-sm font-semibold text-white shadow-card lg:hidden"
         onClick={() => setCartOpen(true)}
       >
-        Cart ({cartCount}) · NGN {cartTotal.toLocaleString()}
+        Cart ({cartCount}) - NGN {cartTotal.toLocaleString()}
       </button>
 
       <Drawer open={cartOpen} onClose={() => setCartOpen(false)} title="Checkout">
@@ -423,3 +432,4 @@ export const PublicOrderPage = () => {
     </div>
   );
 };
+

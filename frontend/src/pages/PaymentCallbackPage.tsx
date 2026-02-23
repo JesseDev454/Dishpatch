@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
-import { api } from "../lib/api";
+import { publicApi } from "../lib/api";
 import { useToast } from "../context/ToastContext";
 
 type VerifyResponse = {
@@ -49,7 +49,7 @@ export const PaymentCallbackPage = () => {
     setErrorMessage("Payment not confirmed");
 
     try {
-      const response = await api.get<VerifyResponse>(`/public/payments/paystack/verify`, {
+      const response = await publicApi.get<VerifyResponse>(`/public/payments/paystack/verify`, {
         params: { reference }
       });
 

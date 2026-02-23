@@ -34,6 +34,11 @@ export const api = axios.create({
   withCredentials: true
 });
 
+export const publicApi = axios.create({
+  baseURL: apiBaseUrl,
+  withCredentials: false
+});
+
 export const getSocketBaseUrl = (): string => socketBaseUrl;
 
 export const setAccessToken = (token: string | null): void => {

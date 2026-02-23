@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
-import { api } from "../lib/api";
+import { publicApi } from "../lib/api";
 
 type ReceiptResponse = {
   restaurant: {
@@ -44,7 +44,7 @@ export const ReceiptPage = () => {
       }
 
       try {
-        const response = await api.get<ReceiptResponse>(`/public/receipts/${reference}`);
+        const response = await publicApi.get<ReceiptResponse>(`/public/receipts/${reference}`);
         setReceipt(response.data);
       } catch (error: any) {
         setError(error?.response?.data?.message ?? "Receipt not available.");

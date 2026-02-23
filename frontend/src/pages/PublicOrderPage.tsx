@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
-import { api } from "../lib/api";
+import { publicApi } from "../lib/api";
 import { useToast } from "../context/ToastContext";
 
 type PublicMenuItem = {
@@ -51,7 +51,7 @@ export const PublicOrderPage = () => {
   useEffect(() => {
     const fetchMenu = async () => {
       try {
-        const response = await api.get<MenuResponse>(`/public/restaurants/${slug}/menu`);
+        const response = await publicApi.get<MenuResponse>(`/public/restaurants/${slug}/menu`);
         setMenu(response.data);
       } catch (error: any) {
         showToast(error?.response?.data?.message ?? "Failed to load menu", "error");
@@ -98,7 +98,7 @@ export const PublicOrderPage = () => {
 
     setIsSubmitting(true);
     try {
-      const response = await api.post<{ order: { id: number } }>(`/public/restaurants/${slug}/orders`, {
+      const response = await publicApi.post<{ order: { id: number } }>(`/public/restaurants/${slug}/orders`, {
         type: orderType,
         customerName,
         customerPhone,
@@ -122,7 +122,7 @@ export const PublicOrderPage = () => {
 
     setIsInitializingPayment(true);
     try {
-      const response = await api.post<{ authorizationUrl: string; reference: string }>(
+      const response = await publicApi.post<{ authorizationUrl: string; reference: string }>(
         `/public/orders/${orderId}/paystack/initialize`,
         { email: customerEmail.trim() }
       );
@@ -165,11 +165,13 @@ export const PublicOrderPage = () => {
                     <p className="muted">NGN {Number(item.price).toLocaleString()}</p>
                   </div>
                   <div className="actions">
-                    <button className="ghost" onClick={() => updateCart(item, -1)}>
+                    <button type="button" className="ghost" onClick={() => updateCart(item, -1)}>
                       -
                     </button>
                     <span>{cart.find((line) => line.item.id === item.id)?.quantity ?? 0}</span>
-                    <button onClick={() => updateCart(item, 1)}>+</button>
+                    <button type="button" onClick={() => updateCart(item, 1)}>
+                      +
+                    </button>
                   </div>
                 </div>
               ))}
@@ -220,7 +222,7 @@ export const PublicOrderPage = () => {
                 </p>
               </div>
               <div className="actions">
-                <button className="ghost" onClick={() => updateCart(line.item, -1)}>
+                <button type="button" className="ghost" onClick={() => updateCart(line.item, -1)}>
                   Remove
                 </button>
               </div>
@@ -228,10 +230,10 @@ export const PublicOrderPage = () => {
           ))}
           <p className="muted">Total: NGN {cartTotal.toLocaleString()}</p>
           <div className="actions">
-            <button onClick={createOrder} disabled={isSubmitting}>
+            <button type="button" onClick={createOrder} disabled={isSubmitting}>
               {isSubmitting ? "Creating..." : "Create Order"}
             </button>
-            <button className="ghost" onClick={payNow} disabled={!orderId || isInitializingPayment}>
+            <button type="button" className="ghost" onClick={payNow} disabled={!orderId || isInitializingPayment}>
               {isInitializingPayment ? "Redirecting..." : "Pay Now"}
             </button>
           </div>

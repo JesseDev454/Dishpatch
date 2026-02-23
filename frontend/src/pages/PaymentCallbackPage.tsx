@@ -86,7 +86,15 @@ export const PaymentCallbackPage = () => {
 
   return (
     <div className="center-page">
-      {status === "pending" ? "Processing payment..." : null}
+      {status === "pending" ? (
+        <div className="callback-card">
+          <h2>Processing payment...</h2>
+          <p className="muted">Please wait while we confirm your transaction with Paystack.</p>
+          <p className="muted">
+            <span className="spinner" /> Verifying reference {reference ?? "n/a"}
+          </p>
+        </div>
+      ) : null}
       {status === "failed" ? (
         <div className="callback-card">
           <h2>Payment not confirmed</h2>

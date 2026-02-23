@@ -38,6 +38,8 @@ export const PublicOrderPage = () => {
   const { showToast } = useToast();
   const [menu, setMenu] = useState<MenuResponse | null>(null);
   const [loading, setLoading] = useState(true);
+  const [activeCategoryId, setActiveCategoryId] = useState<number | null>(null);
+  const [cartOpen, setCartOpen] = useState(false);
   const [customerName, setCustomerName] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
   const [customerEmail, setCustomerEmail] = useState("");
@@ -53,6 +55,9 @@ export const PublicOrderPage = () => {
       try {
         const response = await publicApi.get<MenuResponse>(`/public/restaurants/${slug}/menu`);
         setMenu(response.data);
+        if (response.data.categories.length > 0) {
+          setActiveCategoryId(response.data.categories[0].id);
+        }
       } catch (error: any) {
         showToast(error?.response?.data?.message ?? "Failed to load menu", "error");
       } finally {
@@ -69,7 +74,22 @@ export const PublicOrderPage = () => {
     return cart.reduce((sum, line) => sum + Number(line.item.price) * line.quantity, 0);
   }, [cart]);
 
+  const activeCategory = useMemo(() => {
+    if (!menu || menu.categories.length === 0) {
+      return null;
+    }
+    if (activeCategoryId === null) {
+      return menu.categories[0];
+    }
+    return menu.categories.find((category) => category.id === activeCategoryId) ?? menu.categories[0];
+  }, [menu, activeCategoryId]);
+
+  const cartCount = useMemo(() => cart.reduce((sum, line) => sum + line.quantity, 0), [cart]);
+
   const updateCart = (item: PublicMenuItem, delta: number) => {
+    if (!item.isAvailable) {
+      return;
+    }
     setCart((prev) => {
       const existing = prev.find((line) => line.item.id === item.id);
       if (!existing) {
@@ -81,6 +101,7 @@ export const PublicOrderPage = () => {
       }
       return prev.map((line) => (line.item.id === item.id ? { ...line, quantity: nextQuantity } : line));
     });
+    setOrderId(null);
   };
 
   const createOrder = async () => {
@@ -91,8 +112,20 @@ export const PublicOrderPage = () => {
       showToast("Add at least one item to the cart.", "error");
       return;
     }
+    if (!customerName.trim()) {
+      showToast("Customer name is required.", "error");
+      return;
+    }
+    if (!customerPhone.trim()) {
+      showToast("Customer phone is required.", "error");
+      return;
+    }
     if (!customerEmail.trim()) {
       showToast("Customer email is required for payment.", "error");
+      return;
+    }
+    if (orderType === "DELIVERY" && !deliveryAddress.trim()) {
+      showToast("Delivery address is required for delivery orders.", "error");
       return;
     }
 
@@ -108,6 +141,7 @@ export const PublicOrderPage = () => {
       });
       setOrderId(response.data.order.id);
       showToast("Order created. Proceed to payment.", "success");
+      setCartOpen(true);
     } catch (error: any) {
       showToast(error?.response?.data?.message ?? "Failed to create order", "error");
     } finally {
@@ -135,7 +169,20 @@ export const PublicOrderPage = () => {
   };
 
   if (loading) {
-    return <div className="center-page">Loading menu...</div>;
+    return (
+      <div className="center-page">
+        <div className="app-loader">
+          <p>
+            <span className="spinner" /> Loading menu...
+          </p>
+          <div style={{ marginTop: 12 }}>
+            <div className="skeleton skeleton-line" />
+            <div className="skeleton skeleton-line" />
+            <div className="skeleton skeleton-line" />
+          </div>
+        </div>
+      </div>
+    );
   }
 
   if (!menu) {
@@ -143,102 +190,202 @@ export const PublicOrderPage = () => {
   }
 
   return (
-    <div className="dashboard">
-      <header className="dashboard-header">
-        <div>
+    <div className="public-page">
+      <header className="public-header">
+        <div className="public-header-inner">
           <h1>{menu.restaurant.name}</h1>
-          <p className="muted">Public ordering</p>
+          <p className="muted">Order in minutes. Freshly prepared and ready to go.</p>
+          <div className="category-tabs">
+            {menu.categories.map((category) => (
+              <button
+                type="button"
+                key={category.id}
+                className={`category-tab${activeCategory?.id === category.id ? " is-active" : ""}`}
+                onClick={() => setActiveCategoryId(category.id)}
+              >
+                {category.name}
+              </button>
+            ))}
+          </div>
         </div>
       </header>
 
-      <main className="dashboard-grid">
-        <section className="panel">
-          <h3>Menu</h3>
-          {menu.categories.map((category) => (
-            <div key={category.id} className="list">
-              <p className="muted">{category.name}</p>
-              {category.items.length === 0 ? <p className="muted">No available items.</p> : null}
-              {category.items.map((item) => (
-                <div key={item.id} className="list-row">
-                  <div>
-                    <strong>{item.name}</strong>
-                    <p className="muted">NGN {Number(item.price).toLocaleString()}</p>
-                  </div>
-                  <div className="actions">
-                    <button type="button" className="ghost" onClick={() => updateCart(item, -1)}>
-                      -
-                    </button>
-                    <span>{cart.find((line) => line.item.id === item.id)?.quantity ?? 0}</span>
-                    <button type="button" onClick={() => updateCart(item, 1)}>
-                      +
-                    </button>
-                  </div>
-                </div>
-              ))}
+      <button type="button" className="public-cart-toggle" onClick={() => setCartOpen(true)}>
+        Cart ({cartCount}) - NGN {cartTotal.toLocaleString()}
+      </button>
+      <div className={`sheet-backdrop${cartOpen ? " is-open" : ""}`} onClick={() => setCartOpen(false)} />
+
+      <main className="menu-layout">
+        <section className="menu-column">
+          <article className="panel">
+            <div className="panel-head">
+              <h3>{activeCategory?.name ?? "Menu"}</h3>
             </div>
-          ))}
+
+            {activeCategory && activeCategory.items.length > 0 ? (
+              <div className="menu-grid">
+                {activeCategory.items.map((item) => {
+                  const quantity = cart.find((line) => line.item.id === item.id)?.quantity ?? 0;
+                  return (
+                    <article key={item.id} className="menu-item-card">
+                      <div className="menu-item-media" />
+                      <div>
+                        <div className="menu-item-head">
+                          <h4 className="menu-item-title">{item.name}</h4>
+                          <p className="menu-item-price">NGN {Number(item.price).toLocaleString()}</p>
+                        </div>
+                        <p className="muted">{item.description || "Freshly made and prepared to order."}</p>
+                      </div>
+                      <div className="qty-control">
+                        <button type="button" className="ghost" onClick={() => updateCart(item, -1)} disabled={!item.isAvailable}>
+                          -
+                        </button>
+                        <span className="qty-count">{quantity}</span>
+                        <button type="button" onClick={() => updateCart(item, 1)} disabled={!item.isAvailable}>
+                          +
+                        </button>
+                      </div>
+                      {!item.isAvailable ? <p className="muted">Temporarily unavailable</p> : null}
+                    </article>
+                  );
+                })}
+              </div>
+            ) : (
+              <p className="empty-state">No available items in this category right now.</p>
+            )}
+          </article>
         </section>
 
-        <section className="panel">
-          <h3>Customer Details</h3>
-          <div className="item-form">
-            <label>
-              Full name
-              <input value={customerName} onChange={(event) => setCustomerName(event.target.value)} />
-            </label>
-            <label>
-              Phone
-              <input value={customerPhone} onChange={(event) => setCustomerPhone(event.target.value)} />
-            </label>
-            <label>
-              Email (for Paystack)
-              <input value={customerEmail} onChange={(event) => setCustomerEmail(event.target.value)} />
-            </label>
-            <label>
-              Order type
-              <select value={orderType} onChange={(event) => setOrderType(event.target.value as "DELIVERY" | "PICKUP")}>
-                <option value="PICKUP">Pickup</option>
-                <option value="DELIVERY">Delivery</option>
-              </select>
-            </label>
-            {orderType === "DELIVERY" ? (
+        <aside className={`cart-panel${cartOpen ? " is-open" : ""}`}>
+          <article className="cart-card">
+            <div className="panel-head">
+              <h3>Checkout</h3>
+              <button type="button" className="ghost" onClick={() => setCartOpen(false)}>
+                Close
+              </button>
+            </div>
+
+            <div className="customer-form">
+              <label>
+                Full name
+                <input
+                  required
+                  value={customerName}
+                  onChange={(event) => {
+                    setCustomerName(event.target.value);
+                    setOrderId(null);
+                  }}
+                  placeholder="Your name"
+                />
+              </label>
+              <label>
+                Phone
+                <input
+                  required
+                  value={customerPhone}
+                  onChange={(event) => {
+                    setCustomerPhone(event.target.value);
+                    setOrderId(null);
+                  }}
+                  placeholder="080..."
+                />
+              </label>
+              <label>
+                Email (for Paystack)
+                <input
+                  required
+                  type="email"
+                  value={customerEmail}
+                  onChange={(event) => {
+                    setCustomerEmail(event.target.value);
+                    setOrderId(null);
+                  }}
+                  placeholder="customer@email.com"
+                />
+              </label>
+              <div>
+                <p className="muted" style={{ marginBottom: 6 }}>
+                  Order type
+                </p>
+                <div className="segmented">
+                  <button
+                    type="button"
+                    className={orderType === "PICKUP" ? "is-selected" : ""}
+                    onClick={() => {
+                      setOrderType("PICKUP");
+                      setDeliveryAddress("");
+                      setOrderId(null);
+                    }}
+                  >
+                    Pickup
+                  </button>
+                  <button
+                    type="button"
+                    className={orderType === "DELIVERY" ? "is-selected" : ""}
+                    onClick={() => {
+                      setOrderType("DELIVERY");
+                      setOrderId(null);
+                    }}
+                  >
+                    Delivery
+                  </button>
+                </div>
+              </div>
               <label>
                 Delivery address
-                <input value={deliveryAddress} onChange={(event) => setDeliveryAddress(event.target.value)} />
+                <input
+                  required={orderType === "DELIVERY"}
+                  disabled={orderType === "PICKUP"}
+                  value={deliveryAddress}
+                  onChange={(event) => {
+                    setDeliveryAddress(event.target.value);
+                    setOrderId(null);
+                  }}
+                  placeholder={orderType === "PICKUP" ? "Not required for pickup" : "Street, area, city"}
+                />
               </label>
-            ) : null}
-          </div>
-        </section>
+            </div>
 
-        <section className="panel">
-          <h3>Cart</h3>
-          {cart.length === 0 ? <p className="muted">No items selected.</p> : null}
-          {cart.map((line) => (
-            <div key={line.item.id} className="list-row">
-              <div>
-                <strong>{line.item.name}</strong>
-                <p className="muted">
-                  {line.quantity} x NGN {Number(line.item.price).toLocaleString()}
-                </p>
-              </div>
-              <div className="actions">
-                <button type="button" className="ghost" onClick={() => updateCart(line.item, -1)}>
-                  Remove
-                </button>
+            <div>
+              <p className="muted">Cart items</p>
+              <div className="cart-lines">
+                {cart.length === 0 ? <p className="empty-state">Your cart is empty. Add menu items to continue.</p> : null}
+                {cart.map((line) => (
+                  <div key={line.item.id} className="cart-line">
+                    <div>
+                      <strong>{line.item.name}</strong>
+                      <p className="muted">
+                        {line.quantity} x NGN {Number(line.item.price).toLocaleString()}
+                      </p>
+                    </div>
+                    <div className="qty-control">
+                      <button type="button" className="ghost" onClick={() => updateCart(line.item, -1)}>
+                        -
+                      </button>
+                      <span className="qty-count">{line.quantity}</span>
+                      <button type="button" onClick={() => updateCart(line.item, 1)}>
+                        +
+                      </button>
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
-          ))}
-          <p className="muted">Total: NGN {cartTotal.toLocaleString()}</p>
-          <div className="actions">
-            <button type="button" onClick={createOrder} disabled={isSubmitting}>
-              {isSubmitting ? "Creating..." : "Create Order"}
-            </button>
-            <button type="button" className="ghost" onClick={payNow} disabled={!orderId || isInitializingPayment}>
-              {isInitializingPayment ? "Redirecting..." : "Pay Now"}
-            </button>
-          </div>
-          {orderId ? <p className="muted">Order ID: {orderId}</p> : null}
-        </section>
+
+            <div className="checkout-cta">
+              <p className="menu-item-price">Subtotal: NGN {cartTotal.toLocaleString()}</p>
+              <div className="actions">
+                <button type="button" onClick={createOrder} disabled={isSubmitting}>
+                  {isSubmitting ? "Creating..." : "Create Order"}
+                </button>
+                <button type="button" className="ghost" onClick={payNow} disabled={!orderId || isInitializingPayment}>
+                  {isInitializingPayment ? "Redirecting..." : "Pay Now"}
+                </button>
+              </div>
+              {orderId ? <p className="muted">Order created: #{orderId}. Click Pay Now to continue.</p> : null}
+            </div>
+          </article>
+        </aside>
       </main>
     </div>
   );

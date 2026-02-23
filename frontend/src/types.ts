@@ -36,6 +36,7 @@ export interface Item {
 
 export type OrderStatus =
   | "PENDING_PAYMENT"
+  | "EXPIRED"
   | "PAID"
   | "ACCEPTED"
   | "PREPARING"

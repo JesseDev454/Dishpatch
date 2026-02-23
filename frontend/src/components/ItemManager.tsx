@@ -121,7 +121,9 @@ export const ItemManager = ({ items, categories, onChange }: ItemManagerProps) =
 
   return (
     <section className="panel">
-      <h3>Items</h3>
+      <div className="panel-head">
+        <h3>Items</h3>
+      </div>
       <form className="item-form" onSubmit={createItem}>
         <label>
           Category
@@ -176,8 +178,9 @@ export const ItemManager = ({ items, categories, onChange }: ItemManagerProps) =
           Available
         </label>
         <button type="submit" disabled={categories.length === 0}>
-          Add Item
+          Add Menu Item
         </button>
+        {categories.length === 0 ? <p className="muted">Create at least one category before adding items.</p> : null}
       </form>
 
       <div className="toolbar">
@@ -197,7 +200,9 @@ export const ItemManager = ({ items, categories, onChange }: ItemManagerProps) =
       {error ? <p className="error-text">{error}</p> : null}
 
       <div className="list">
-        {visibleItems.length === 0 ? <p className="muted">No items yet.</p> : null}
+        {visibleItems.length === 0 ? (
+          <p className="empty-state">No items yet. Add your first menu item to start receiving orders.</p>
+        ) : null}
         {visibleItems.map((item) => (
           <div key={item.id} className="list-row">
             {editingId === item.id ? (

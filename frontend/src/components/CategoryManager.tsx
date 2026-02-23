@@ -69,7 +69,9 @@ export const CategoryManager = ({ categories, onChange }: CategoryManagerProps) 
 
   return (
     <section className="panel">
-      <h3>Categories</h3>
+      <div className="panel-head">
+        <h3>Categories</h3>
+      </div>
       <form className="inline-form" onSubmit={createCategory}>
         <label>
           Category name
@@ -89,11 +91,11 @@ export const CategoryManager = ({ categories, onChange }: CategoryManagerProps) 
             placeholder="0"
           />
         </label>
-        <button type="submit">Add</button>
+        <button type="submit">Add Category</button>
       </form>
       {error ? <p className="error-text">{error}</p> : null}
       <div className="list">
-        {categories.length === 0 ? <p className="muted">No categories yet.</p> : null}
+        {categories.length === 0 ? <p className="empty-state">No categories yet. Add your first category to organize items.</p> : null}
         {categories.map((category) => (
           <div key={category.id} className="list-row">
             {editingId === category.id ? (

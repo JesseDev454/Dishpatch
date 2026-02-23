@@ -7,7 +7,17 @@ import { getApiErrorMessage } from "../lib/errors";
 import { api, getSocketBaseUrl, getStoredAccessToken } from "../lib/api";
 import { OrderStatus, OrderSummary } from "../types";
 
-const DEFAULT_FILTER_STATUSES = ["PAID", "ACCEPTED", "PREPARING", "READY", "COMPLETED", "CANCELLED"].join(",");
+const DEFAULT_FILTER_STATUSES = [
+  "PENDING_PAYMENT",
+  "EXPIRED",
+  "PAID",
+  "ACCEPTED",
+  "PREPARING",
+  "READY",
+  "COMPLETED",
+  "CANCELLED",
+  "FAILED_PAYMENT"
+].join(",");
 
 const sortNewestFirst = (orders: OrderSummary[]): OrderSummary[] => {
   return [...orders].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
@@ -36,6 +46,7 @@ export const LiveOrdersPage = () => {
   const [realtimeConnected, setRealtimeConnected] = useState(false);
   const [realtimeNotice, setRealtimeNotice] = useState<string | null>(null);
   const [updatingOrderIds, setUpdatingOrderIds] = useState<Set<number>>(new Set());
+  const [freshOrderIds, setFreshOrderIds] = useState<Set<number>>(new Set());
 
   const fetchOrders = async (withToast = false) => {
     const response = await api.get<{ orders: OrderSummary[] }>("/orders", {
@@ -99,12 +110,25 @@ export const LiveOrdersPage = () => {
       setOrders(sortNewestFirst(snapshot));
     });
 
+    const markFresh = (orderId: number) => {
+      setFreshOrderIds((prev) => new Set(prev).add(orderId));
+      window.setTimeout(() => {
+        setFreshOrderIds((prev) => {
+          const next = new Set(prev);
+          next.delete(orderId);
+          return next;
+        });
+      }, 2400);
+    };
+
     socket.on("order:paid", (order: OrderSummary) => {
       setOrders((prev) => upsertOrder(prev, order));
+      markFresh(order.id);
     });
 
     socket.on("order:updated", (order: OrderSummary) => {
       setOrders((prev) => upsertOrder(prev, order));
+      markFresh(order.id);
     });
 
     return () => {
@@ -140,12 +164,20 @@ export const LiveOrdersPage = () => {
   };
 
   const incoming = useMemo(() => orders.filter((order) => order.status === "PAID"), [orders]);
+  const awaitingPayment = useMemo(
+    () => orders.filter((order) => order.status === "PENDING_PAYMENT" || order.status === "EXPIRED"),
+    [orders]
+  );
   const inProgress = useMemo(
     () => orders.filter((order) => order.status === "ACCEPTED" || order.status === "PREPARING"),
     [orders]
   );
   const ready = useMemo(() => orders.filter((order) => order.status === "READY"), [orders]);
   const completed = useMemo(() => orders.filter((order) => order.status === "COMPLETED"), [orders]);
+  const closed = useMemo(
+    () => orders.filter((order) => order.status === "CANCELLED" || order.status === "FAILED_PAYMENT"),
+    [orders]
+  );
 
   const renderActions = (order: OrderSummary) => {
     const isUpdating = updatingOrderIds.has(order.id);
@@ -206,7 +238,7 @@ export const LiveOrdersPage = () => {
   };
 
   const renderOrderCard = (order: OrderSummary) => (
-    <article key={order.id} className="order-card">
+    <article key={order.id} className={`order-card${freshOrderIds.has(order.id) ? " is-fresh" : ""}`}>
       <div className="order-card-head">
         <div>
           <strong>Order #{order.id}</strong>
@@ -235,23 +267,33 @@ export const LiveOrdersPage = () => {
   );
 
   if (loading) {
-    return <div className="center-page">Loading live orders...</div>;
+    return (
+      <div className="center-page">
+        <div className="app-loader">
+          <p>
+            <span className="spinner" /> Loading live orders...
+          </p>
+        </div>
+      </div>
+    );
   }
 
   return (
-    <div className="dashboard">
-      <header className="dashboard-header">
+    <div className="app-shell">
+      <aside className="app-sidebar">
         <div>
-          <h1>Dishpatch</h1>
-          <p className="muted">{user?.restaurant.name}</p>
+          <h1 className="sidebar-brand">Dishpatch</h1>
+          <p className="sidebar-meta">{user?.restaurant.name}</p>
         </div>
-        <div className="actions">
-          <Link className="ghost link-button" to="/dashboard">
-            Menu Dashboard
+        <nav className="sidebar-nav">
+          <Link className="sidebar-link" to="/dashboard">
+            Categories & Items
           </Link>
-          <button className="ghost" onClick={() => void fetchOrders(true)}>
-            Refresh
-          </button>
+          <Link className="sidebar-link is-active" to="/dashboard/orders">
+            Live Orders
+          </Link>
+        </nav>
+        <div className="sidebar-footer">
           <button
             className="ghost"
             onClick={() => {
@@ -261,35 +303,75 @@ export const LiveOrdersPage = () => {
             Logout
           </button>
         </div>
-      </header>
+      </aside>
 
-      <div className="live-orders-toolbar">
-        <h2>Live Orders</h2>
-        {realtimeConnected ? <span className="status-pill connected">Realtime connected</span> : null}
-        {realtimeNotice ? <span className="status-pill disconnected">{realtimeNotice}</span> : null}
-      </div>
+      <main className="dashboard-main">
+        <div className="dashboard">
+          <header className="topbar">
+            <div>
+              <h2>Live Orders</h2>
+              <p className="muted">Realtime kitchen workflow for your restaurant team.</p>
+            </div>
+            <div className="topbar-actions">
+              {realtimeConnected ? <span className="status-pill connected">Realtime connected</span> : null}
+              {realtimeNotice ? <span className="status-pill disconnected">{realtimeNotice}</span> : null}
+              <button className="ghost" onClick={() => void fetchOrders(true)}>
+                Refresh
+              </button>
+            </div>
+          </header>
 
-      <main className="live-orders-board">
-        <section className="panel">
-          <h3>Incoming / Paid</h3>
-          <div className="order-list">{incoming.length ? incoming.map(renderOrderCard) : <p className="muted">No paid orders.</p>}</div>
-        </section>
-        <section className="panel">
-          <h3>In Progress</h3>
-          <div className="order-list">
-            {inProgress.length ? inProgress.map(renderOrderCard) : <p className="muted">No in-progress orders.</p>}
+          <div className="live-orders-toolbar">
+            <p className="muted">Updates are synced automatically for all staff signed into this restaurant.</p>
           </div>
-        </section>
-        <section className="panel">
-          <h3>Ready</h3>
-          <div className="order-list">{ready.length ? ready.map(renderOrderCard) : <p className="muted">No ready orders.</p>}</div>
-        </section>
-        <section className="panel">
-          <h3>Completed</h3>
-          <div className="order-list">
-            {completed.length ? completed.map(renderOrderCard) : <p className="muted">No completed orders yet.</p>}
-          </div>
-        </section>
+
+          <main className="live-orders-board">
+            <section className="panel">
+              <div className="panel-head">
+                <h3>Awaiting Payment</h3>
+              </div>
+              <div className="order-list">
+                {awaitingPayment.length ? awaitingPayment.map(renderOrderCard) : <p className="empty-state">No unpaid orders.</p>}
+              </div>
+            </section>
+            <section className="panel">
+              <div className="panel-head">
+                <h3>Incoming / Paid</h3>
+              </div>
+              <div className="order-list">{incoming.length ? incoming.map(renderOrderCard) : <p className="empty-state">No paid orders.</p>}</div>
+            </section>
+            <section className="panel">
+              <div className="panel-head">
+                <h3>In Progress</h3>
+              </div>
+              <div className="order-list">
+                {inProgress.length ? inProgress.map(renderOrderCard) : <p className="empty-state">No orders in prep.</p>}
+              </div>
+            </section>
+            <section className="panel">
+              <div className="panel-head">
+                <h3>Ready</h3>
+              </div>
+              <div className="order-list">{ready.length ? ready.map(renderOrderCard) : <p className="empty-state">No ready orders.</p>}</div>
+            </section>
+            <section className="panel">
+              <div className="panel-head">
+                <h3>Completed</h3>
+              </div>
+              <div className="order-list">
+                {completed.length ? completed.map(renderOrderCard) : <p className="empty-state">No completed orders yet.</p>}
+              </div>
+            </section>
+            <section className="panel">
+              <div className="panel-head">
+                <h3>Closed</h3>
+              </div>
+              <div className="order-list">
+                {closed.length ? closed.map(renderOrderCard) : <p className="empty-state">No cancelled or failed orders.</p>}
+              </div>
+            </section>
+          </main>
+        </div>
       </main>
     </div>
   );

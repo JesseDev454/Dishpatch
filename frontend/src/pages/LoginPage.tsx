@@ -52,6 +52,7 @@ export const LoginPage = () => {
             value={email}
             onChange={(event) => setEmail(event.target.value)}
             placeholder="admin@restaurant.com"
+            autoComplete="email"
           />
         </label>
         <label>
@@ -62,6 +63,7 @@ export const LoginPage = () => {
             value={password}
             onChange={(event) => setPassword(event.target.value)}
             placeholder="Enter password"
+            autoComplete="current-password"
           />
         </label>
         {error ? <p className="error-text">{error}</p> : null}

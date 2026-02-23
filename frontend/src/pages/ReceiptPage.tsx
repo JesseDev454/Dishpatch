@@ -57,7 +57,15 @@ export const ReceiptPage = () => {
   }, [reference]);
 
   if (loading) {
-    return <div className="center-page">Loading receipt...</div>;
+    return (
+      <div className="center-page">
+        <div className="app-loader">
+          <p>
+            <span className="spinner" /> Loading receipt...
+          </p>
+        </div>
+      </div>
+    );
   }
 
   if (error || !receipt) {
@@ -80,22 +88,26 @@ export const ReceiptPage = () => {
       <article className="receipt-shell">
         <header className="receipt-header">
           <h1>{receipt.restaurant.name}</h1>
-          <p>Dishpatch Receipt</p>
+          <p className="muted">Dishpatch Receipt</p>
         </header>
 
-        <section className="receipt-meta">
-          <p>
-            <strong>Order ID:</strong> #{receipt.order.id}
-          </p>
-          <p>
-            <strong>Date:</strong> {new Date(receipt.order.createdAt).toLocaleString()}
-          </p>
-          <p>
-            <strong>Payment Ref:</strong> {receipt.payment.reference}
-          </p>
-          <p>
-            <strong>Status:</strong> PAID
-          </p>
+        <section className="receipt-meta-grid">
+          <div className="receipt-meta-card">
+            <p className="muted">Order ID</p>
+            <strong>#{receipt.order.id}</strong>
+          </div>
+          <div className="receipt-meta-card">
+            <p className="muted">Order Date</p>
+            <strong>{new Date(receipt.order.createdAt).toLocaleString()}</strong>
+          </div>
+          <div className="receipt-meta-card">
+            <p className="muted">Payment Reference</p>
+            <strong>{receipt.payment.reference}</strong>
+          </div>
+          <div className="receipt-meta-card">
+            <p className="muted">Status</p>
+            <span className="paid-badge">PAID</span>
+          </div>
         </section>
 
         <section className="receipt-customer">

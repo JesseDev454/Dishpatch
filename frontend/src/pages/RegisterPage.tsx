@@ -62,6 +62,7 @@ export const RegisterPage = () => {
             value={email}
             onChange={(event) => setEmail(event.target.value)}
             placeholder="admin@restaurant.com"
+            autoComplete="email"
           />
         </label>
         <label>
@@ -73,6 +74,7 @@ export const RegisterPage = () => {
             value={password}
             onChange={(event) => setPassword(event.target.value)}
             placeholder="Minimum 8 characters"
+            autoComplete="new-password"
           />
         </label>
         {error ? <p className="error-text">{error}</p> : null}

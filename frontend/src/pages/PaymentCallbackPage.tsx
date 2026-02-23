@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { Button } from "../components/ui/Button";
+import { Card } from "../components/ui/Card";
 import { publicApi } from "../lib/api";
 import { useToast } from "../context/ToastContext";
 
@@ -85,27 +87,27 @@ export const PaymentCallbackPage = () => {
   }, []);
 
   return (
-    <div className="center-page">
+    <div className="grid min-h-screen place-items-center px-4">
       {status === "pending" ? (
-        <div className="callback-card">
-          <h2>Processing payment...</h2>
-          <p className="muted">Please wait while we confirm your transaction with Paystack.</p>
-          <p className="muted">
-            <span className="spinner" /> Verifying reference {reference ?? "n/a"}
+        <Card title="Processing payment..." subtitle="Please wait while we confirm your transaction with Paystack." className="w-full max-w-xl">
+          <p className="inline-flex items-center gap-2 text-sm text-slate-500">
+            <span className="h-4 w-4 animate-spin rounded-full border-2 border-brand-200 border-t-brand-500" />
+            Verifying reference {reference ?? "n/a"}
           </p>
-        </div>
+        </Card>
       ) : null}
       {status === "failed" ? (
-        <div className="callback-card">
-          <h2>Payment not confirmed</h2>
-          <p className="muted">{errorMessage}</p>
-          <div className="actions">
-            <button onClick={() => void verifyPayment()}>Retry</button>
-            <Link className="ghost link-button" to={restaurantSlug ? `/r/${restaurantSlug}` : "/"}>
+        <Card title="Payment not confirmed" subtitle={errorMessage} className="w-full max-w-xl">
+          <div className="flex flex-wrap gap-2">
+            <Button onClick={() => void verifyPayment()}>Retry</Button>
+            <Link
+              to={restaurantSlug ? `/r/${restaurantSlug}` : "/"}
+              className="focus-ring inline-flex h-10 items-center justify-center rounded-xl border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+            >
               Back to restaurant
             </Link>
           </div>
-        </div>
+        </Card>
       ) : null}
     </div>
   );

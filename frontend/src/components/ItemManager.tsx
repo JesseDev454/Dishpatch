@@ -3,6 +3,11 @@ import { api } from "../lib/api";
 import { useToast } from "../context/ToastContext";
 import { getApiErrorMessage } from "../lib/errors";
 import { Category, Item } from "../types";
+import { Button } from "./ui/Button";
+import { Card } from "./ui/Card";
+import { EmptyState } from "./ui/EmptyState";
+import { InputField } from "./ui/InputField";
+import { SelectField } from "./ui/SelectField";
 
 type ItemManagerProps = {
   items: Item[];
@@ -120,15 +125,12 @@ export const ItemManager = ({ items, categories, onChange }: ItemManagerProps) =
   };
 
   return (
-    <section className="panel">
-      <div className="panel-head">
-        <h3>Items</h3>
-      </div>
-      <form className="item-form" onSubmit={createItem}>
-        <label>
-          Category
-          <select
+    <Card title="Items" subtitle="Add, edit, and manage menu item availability.">
+      <form className="grid gap-3" onSubmit={createItem}>
+        <div className="grid gap-3 md:grid-cols-2">
+          <SelectField
             required
+            label="Category"
             value={form.categoryId}
             onChange={(event) => setForm((prev) => ({ ...prev, categoryId: event.target.value }))}
           >
@@ -138,29 +140,25 @@ export const ItemManager = ({ items, categories, onChange }: ItemManagerProps) =
                 {category.name}
               </option>
             ))}
-          </select>
-        </label>
-        <label>
-          Item name
-          <input
+          </SelectField>
+          <InputField
             required
+            label="Item name"
             value={form.name}
             onChange={(event) => setForm((prev) => ({ ...prev, name: event.target.value }))}
             placeholder="e.g. Jollof Rice + Chicken"
           />
-        </label>
-        <label>
-          Description (optional)
-          <input
+        </div>
+        <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_200px]">
+          <InputField
+            label="Description"
             value={form.description}
             onChange={(event) => setForm((prev) => ({ ...prev, description: event.target.value }))}
             placeholder="Short details"
           />
-        </label>
-        <label>
-          Price (NGN)
-          <input
+          <InputField
             required
+            label="Price (NGN)"
             type="number"
             step="0.01"
             min="0"
@@ -168,125 +166,116 @@ export const ItemManager = ({ items, categories, onChange }: ItemManagerProps) =
             onChange={(event) => setForm((prev) => ({ ...prev, price: event.target.value }))}
             placeholder="0.00"
           />
-        </label>
-        <label className="check-row">
+        </div>
+        <label className="inline-flex items-center gap-2 text-sm font-medium text-slate-700">
           <input
             type="checkbox"
+            className="h-4 w-4 rounded border-slate-300 text-brand-500 focus:ring-brand-200"
             checked={form.isAvailable}
             onChange={(event) => setForm((prev) => ({ ...prev, isAvailable: event.target.checked }))}
           />
           Available
         </label>
-        <button type="submit" disabled={categories.length === 0}>
-          Add Menu Item
-        </button>
-        {categories.length === 0 ? <p className="muted">Create at least one category before adding items.</p> : null}
+        <div className="flex flex-wrap items-center gap-2">
+          <Button type="submit" disabled={categories.length === 0}>
+            Add Menu Item
+          </Button>
+          {categories.length === 0 ? <p className="text-sm text-slate-500">Create a category before adding items.</p> : null}
+        </div>
       </form>
 
-      <div className="toolbar">
-        <label>
-          Filter by category
-          <select value={categoryFilter} onChange={(event) => setCategoryFilter(event.target.value)}>
-            <option value="all">All</option>
-            {categories.map((category) => (
-              <option key={category.id} value={category.id}>
-                {category.name}
-              </option>
-            ))}
-          </select>
-        </label>
+      <div className="mt-5">
+        <SelectField label="Filter by category" value={categoryFilter} onChange={(event) => setCategoryFilter(event.target.value)}>
+          <option value="all">All</option>
+          {categories.map((category) => (
+            <option key={category.id} value={category.id}>
+              {category.name}
+            </option>
+          ))}
+        </SelectField>
       </div>
 
-      {error ? <p className="error-text">{error}</p> : null}
+      {error ? <p className="mt-3 text-sm font-medium text-danger-700">{error}</p> : null}
 
-      <div className="list">
+      <div className="mt-4 space-y-2">
         {visibleItems.length === 0 ? (
-          <p className="empty-state">No items yet. Add your first menu item to start receiving orders.</p>
+          <EmptyState title="No items yet" description="Add your first menu item to start receiving orders." />
         ) : null}
         {visibleItems.map((item) => (
-          <div key={item.id} className="list-row">
+          <div key={item.id} className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
             {editingId === item.id ? (
-              <div className="edit-grid">
-                <label>
-                  Category
-                  <select
-                    value={editingForm.categoryId}
-                    onChange={(event) => setEditingForm((prev) => ({ ...prev, categoryId: event.target.value }))}
-                  >
-                    {categories.map((category) => (
-                      <option key={category.id} value={category.id}>
-                        {category.name}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label>
-                  Item name
-                  <input
-                    value={editingForm.name}
-                    onChange={(event) => setEditingForm((prev) => ({ ...prev, name: event.target.value }))}
-                  />
-                </label>
-                <label>
-                  Description
-                  <input
-                    value={editingForm.description}
-                    onChange={(event) => setEditingForm((prev) => ({ ...prev, description: event.target.value }))}
-                  />
-                </label>
-                <label>
-                  Price (NGN)
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    value={editingForm.price}
-                    onChange={(event) => setEditingForm((prev) => ({ ...prev, price: event.target.value }))}
-                  />
-                </label>
-                <label className="check-row">
+              <div className="grid gap-2 md:grid-cols-2">
+                <SelectField
+                  label="Category"
+                  value={editingForm.categoryId}
+                  onChange={(event) => setEditingForm((prev) => ({ ...prev, categoryId: event.target.value }))}
+                >
+                  {categories.map((category) => (
+                    <option key={category.id} value={category.id}>
+                      {category.name}
+                    </option>
+                  ))}
+                </SelectField>
+                <InputField
+                  label="Item name"
+                  value={editingForm.name}
+                  onChange={(event) => setEditingForm((prev) => ({ ...prev, name: event.target.value }))}
+                />
+                <InputField
+                  label="Description"
+                  value={editingForm.description}
+                  onChange={(event) => setEditingForm((prev) => ({ ...prev, description: event.target.value }))}
+                />
+                <InputField
+                  type="number"
+                  label="Price (NGN)"
+                  step="0.01"
+                  min="0"
+                  value={editingForm.price}
+                  onChange={(event) => setEditingForm((prev) => ({ ...prev, price: event.target.value }))}
+                />
+                <label className="inline-flex items-center gap-2 text-sm font-medium text-slate-700 md:col-span-2">
                   <input
                     type="checkbox"
+                    className="h-4 w-4 rounded border-slate-300 text-brand-500 focus:ring-brand-200"
                     checked={editingForm.isAvailable}
-                    onChange={(event) =>
-                      setEditingForm((prev) => ({ ...prev, isAvailable: event.target.checked }))
-                    }
+                    onChange={(event) => setEditingForm((prev) => ({ ...prev, isAvailable: event.target.checked }))}
                   />
                   Available
                 </label>
-                <div className="actions">
-                  <button type="button" onClick={() => void saveEdit(item.id)}>
+                <div className="flex gap-2 md:col-span-2">
+                  <Button type="button" size="sm" onClick={() => void saveEdit(item.id)}>
                     Save
-                  </button>
-                  <button type="button" className="ghost" onClick={() => setEditingId(null)}>
+                  </Button>
+                  <Button type="button" size="sm" variant="secondary" onClick={() => setEditingId(null)}>
                     Cancel
-                  </button>
+                  </Button>
                 </div>
               </div>
             ) : (
-              <>
+              <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
-                  <strong>{item.name}</strong>
-                  <p className="muted">
+                  <p className="font-semibold text-slate-900">{item.name}</p>
+                  <p className="text-sm text-slate-500">
                     NGN {Number(item.price).toLocaleString()} | {item.isAvailable ? "Available" : "Unavailable"}
                   </p>
                 </div>
-                <div className="actions">
-                  <button type="button" className="ghost" onClick={() => void toggleAvailability(item)}>
+                <div className="flex flex-wrap gap-2">
+                  <Button type="button" size="sm" variant="secondary" onClick={() => void toggleAvailability(item)}>
                     {item.isAvailable ? "Set Unavailable" : "Set Available"}
-                  </button>
-                  <button type="button" className="ghost" onClick={() => startEdit(item)}>
+                  </Button>
+                  <Button type="button" size="sm" variant="secondary" onClick={() => startEdit(item)}>
                     Edit
-                  </button>
-                  <button type="button" className="danger" onClick={() => void deleteItem(item.id)}>
+                  </Button>
+                  <Button type="button" size="sm" variant="danger" onClick={() => void deleteItem(item.id)}>
                     Delete
-                  </button>
+                  </Button>
                 </div>
-              </>
+              </div>
             )}
           </div>
         ))}
       </div>
-    </section>
+    </Card>
   );
 };

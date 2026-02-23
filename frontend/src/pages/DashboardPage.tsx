@@ -1,7 +1,12 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+import { AdminShell } from "../components/AdminShell";
 import { CategoryManager } from "../components/CategoryManager";
 import { ItemManager } from "../components/ItemManager";
+import { Button } from "../components/ui/Button";
+import { Card } from "../components/ui/Card";
+import { EmptyState } from "../components/ui/EmptyState";
+import { PageLoader } from "../components/ui/PageLoader";
 import { useAuth } from "../context/AuthContext";
 import { useToast } from "../context/ToastContext";
 import { getApiErrorMessage, getApiStatus } from "../lib/errors";
@@ -57,121 +62,73 @@ export const DashboardPage = () => {
     };
 
     void bootstrap();
-  }, []);
+  }, [logout, showToast]);
 
   if (loading) {
-    return (
-      <div className="center-page">
-        <div className="app-loader">
-          <p>
-            <span className="spinner" /> Loading dashboard...
-          </p>
-        </div>
-      </div>
-    );
+    return <PageLoader message="Loading dashboard..." />;
   }
 
   return (
-    <div className="app-shell">
-      <aside className="app-sidebar">
-        <div>
-          <h1 className="sidebar-brand">Dishpatch</h1>
-          <p className="sidebar-meta">{user?.restaurant.name}</p>
+    <AdminShell
+      user={user}
+      onLogout={() => {
+        void logout();
+        showToast("Logged out successfully.", "info");
+      }}
+      title="Menu Dashboard"
+      subtitle="Manage categories and items for your restaurant menu."
+      actions={
+        <Link
+          to="/dashboard/orders"
+          className="focus-ring inline-flex h-10 items-center justify-center rounded-xl border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+        >
+          Open Live Orders
+        </Link>
+      }
+    >
+      <div className="grid gap-4 md:grid-cols-2">
+        <Card title="Categories" subtitle="Total categories currently in your menu">
+          <p className="text-2xl font-bold text-slate-900">{categories.length}</p>
+        </Card>
+        <Card title="Items" subtitle="Menu items available for ordering">
+          <p className="text-2xl font-bold text-slate-900">{items.length}</p>
+        </Card>
+      </div>
+
+      {error ? (
+        <div className="mt-4 rounded-xl border border-danger-100 bg-danger-50 px-4 py-3 text-sm font-medium text-danger-700">
+          {error}
         </div>
-        <nav className="sidebar-nav">
-          <Link className="sidebar-link is-active" to="/dashboard">
-            Categories & Items
-          </Link>
-          <Link className="sidebar-link" to="/dashboard/orders">
-            Live Orders
-          </Link>
-        </nav>
-        <div className="sidebar-footer">
-          <button
-            className="ghost"
-            onClick={() => {
-              void logout();
-              showToast("Logged out successfully.", "info");
-            }}
-          >
-            Logout
-          </button>
+      ) : null}
+
+      <div className="mt-5 inline-flex rounded-xl border border-slate-200 bg-white p-1 shadow-sm">
+        <Button type="button" variant={view === "all" ? "primary" : "ghost"} size="sm" onClick={() => setView("all")}>
+          All
+        </Button>
+        <Button
+          type="button"
+          variant={view === "categories" ? "primary" : "ghost"}
+          size="sm"
+          onClick={() => setView("categories")}
+        >
+          Categories
+        </Button>
+        <Button type="button" variant={view === "items" ? "primary" : "ghost"} size="sm" onClick={() => setView("items")}>
+          Items
+        </Button>
+      </div>
+
+      <div className="mt-5 grid gap-4 xl:grid-cols-2">
+        {(view === "all" || view === "categories") && (
+          <CategoryManager categories={categories} onChange={refreshAll} />
+        )}
+        {(view === "all" || view === "items") && <ItemManager items={items} categories={categories} onChange={refreshAll} />}
+      </div>
+      {view === "all" && categories.length === 0 && items.length === 0 ? (
+        <div className="mt-4">
+          <EmptyState title="No menu data yet" description="Add categories and items to get your storefront ready." />
         </div>
-      </aside>
-      <main className="dashboard-main">
-        <div className="dashboard">
-          <header className="topbar">
-            <div>
-              <h2>Menu Dashboard</h2>
-              <p className="muted">Manage categories and items for your restaurant menu.</p>
-            </div>
-            <div className="topbar-actions">
-              <Link className="link-button ghost" to="/dashboard/orders">
-                Open Live Orders
-              </Link>
-            </div>
-          </header>
-
-          <div className="dashboard-grid">
-            <section className="panel">
-              <div className="panel-head">
-                <h3>Overview</h3>
-              </div>
-              <div className="list">
-                <div className="list-row">
-                  <div>
-                    <strong>{categories.length}</strong>
-                    <p className="muted">Categories</p>
-                  </div>
-                  <span className="status-badge status-completed">Active</span>
-                </div>
-                <div className="list-row">
-                  <div>
-                    <strong>{items.length}</strong>
-                    <p className="muted">Items</p>
-                  </div>
-                  <span className="status-badge status-paid">In menu</span>
-                </div>
-              </div>
-            </section>
-          </div>
-
-          {error ? <p className="error-text">{error}</p> : null}
-
-          <nav className="section-nav" aria-label="Dashboard view">
-            <button
-              type="button"
-              className={view === "all" ? "is-selected" : ""}
-              onClick={() => setView("all")}
-            >
-              All
-            </button>
-            <button
-              type="button"
-              className={view === "categories" ? "is-selected" : ""}
-              onClick={() => setView("categories")}
-            >
-              Categories
-            </button>
-            <button
-              type="button"
-              className={view === "items" ? "is-selected" : ""}
-              onClick={() => setView("items")}
-            >
-              Items
-            </button>
-          </nav>
-
-          <main className="dashboard-grid">
-            {(view === "all" || view === "categories") && (
-              <CategoryManager categories={categories} onChange={refreshAll} />
-            )}
-            {(view === "all" || view === "items") && (
-              <ItemManager items={items} categories={categories} onChange={refreshAll} />
-            )}
-          </main>
-        </div>
-      </main>
-    </div>
+      ) : null}
+    </AdminShell>
   );
 };

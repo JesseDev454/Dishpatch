@@ -2,6 +2,7 @@ import { Suspense, lazy } from "react";
 import { Navigate, Route, Routes } from "react-router-dom";
 import { useAuth } from "./context/AuthContext";
 import { ProtectedRoute } from "./components/ProtectedRoute";
+import { PageLoader } from "./components/ui/PageLoader";
 
 const LoginPage = lazy(() => import("./pages/LoginPage").then((mod) => ({ default: mod.LoginPage })));
 const RegisterPage = lazy(() => import("./pages/RegisterPage").then((mod) => ({ default: mod.RegisterPage })));
@@ -16,15 +17,7 @@ const ReceiptPage = lazy(() => import("./pages/ReceiptPage").then((mod) => ({ de
 function HomeRedirect() {
   const { user, loading } = useAuth();
   if (loading) {
-    return (
-      <div className="center-page">
-        <div className="app-loader">
-          <p>
-            <span className="spinner" /> Loading Dishpatch...
-          </p>
-        </div>
-      </div>
-    );
+    return <PageLoader message="Loading Dishpatch..." />;
   }
   return <Navigate to={user ? "/dashboard" : "/login"} replace />;
 }
@@ -32,15 +25,7 @@ function HomeRedirect() {
 export default function App() {
   return (
     <Suspense
-      fallback={
-        <div className="center-page">
-          <div className="app-loader">
-            <p>
-              <span className="spinner" /> Loading page...
-            </p>
-          </div>
-        </div>
-      }
+      fallback={<PageLoader message="Loading page..." />}
     >
       <Routes>
         <Route path="/" element={<HomeRedirect />} />

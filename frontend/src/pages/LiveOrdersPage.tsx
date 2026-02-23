@@ -1,6 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Link } from "react-router-dom";
 import { io, Socket } from "socket.io-client";
+import { AdminShell } from "../components/AdminShell";
+import { Button } from "../components/ui/Button";
+import { Card } from "../components/ui/Card";
+import { Badge, OrderStatusBadge } from "../components/ui/Badge";
+import { EmptyState } from "../components/ui/EmptyState";
+import { PageLoader } from "../components/ui/PageLoader";
 import { useAuth } from "../context/AuthContext";
 import { useToast } from "../context/ToastContext";
 import { getApiErrorMessage } from "../lib/errors";
@@ -33,8 +38,6 @@ const upsertOrder = (orders: OrderSummary[], incoming: OrderSummary): OrderSumma
   next[existingIndex] = incoming;
   return sortNewestFirst(next);
 };
-
-const readableStatus = (status: OrderStatus): string => status.replace(/_/g, " ");
 
 export const LiveOrdersPage = () => {
   const { user, logout } = useAuth();
@@ -155,7 +158,7 @@ export const LiveOrdersPage = () => {
     try {
       const response = await api.patch<{ order: OrderSummary }>(`/orders/${orderId}/status`, { status });
       setOrders((prev) => upsertOrder(prev, response.data.order));
-      showToast(`Order #${orderId} updated to ${readableStatus(status)}.`, "success");
+      showToast(`Order #${orderId} updated to ${status.replace(/_/g, " ")}.`, "success");
     } catch (error: unknown) {
       showToast(getApiErrorMessage(error, "Failed to update order status"), "error");
     } finally {
@@ -184,52 +187,72 @@ export const LiveOrdersPage = () => {
 
     if (order.status === "PAID") {
       return (
-        <div className="actions">
-          <button disabled={isUpdating} onClick={() => void updateOrderStatus(order.id, "ACCEPTED")}>
+        <div className="flex flex-wrap gap-2">
+          <Button size="sm" disabled={isUpdating} onClick={() => void updateOrderStatus(order.id, "ACCEPTED")}>
             Accept
-          </button>
-          <button className="danger" disabled={isUpdating} onClick={() => void updateOrderStatus(order.id, "CANCELLED")}>
+          </Button>
+          <Button
+            size="sm"
+            variant="danger"
+            disabled={isUpdating}
+            onClick={() => void updateOrderStatus(order.id, "CANCELLED")}
+          >
             Cancel
-          </button>
+          </Button>
         </div>
       );
     }
 
     if (order.status === "ACCEPTED") {
       return (
-        <div className="actions">
-          <button disabled={isUpdating} onClick={() => void updateOrderStatus(order.id, "PREPARING")}>
+        <div className="flex flex-wrap gap-2">
+          <Button size="sm" disabled={isUpdating} onClick={() => void updateOrderStatus(order.id, "PREPARING")}>
             Start Prep
-          </button>
-          <button className="danger" disabled={isUpdating} onClick={() => void updateOrderStatus(order.id, "CANCELLED")}>
+          </Button>
+          <Button
+            size="sm"
+            variant="danger"
+            disabled={isUpdating}
+            onClick={() => void updateOrderStatus(order.id, "CANCELLED")}
+          >
             Cancel
-          </button>
+          </Button>
         </div>
       );
     }
 
     if (order.status === "PREPARING") {
       return (
-        <div className="actions">
-          <button disabled={isUpdating} onClick={() => void updateOrderStatus(order.id, "READY")}>
+        <div className="flex flex-wrap gap-2">
+          <Button size="sm" disabled={isUpdating} onClick={() => void updateOrderStatus(order.id, "READY")}>
             Mark Ready
-          </button>
-          <button className="danger" disabled={isUpdating} onClick={() => void updateOrderStatus(order.id, "CANCELLED")}>
+          </Button>
+          <Button
+            size="sm"
+            variant="danger"
+            disabled={isUpdating}
+            onClick={() => void updateOrderStatus(order.id, "CANCELLED")}
+          >
             Cancel
-          </button>
+          </Button>
         </div>
       );
     }
 
     if (order.status === "READY") {
       return (
-        <div className="actions">
-          <button disabled={isUpdating} onClick={() => void updateOrderStatus(order.id, "COMPLETED")}>
+        <div className="flex flex-wrap gap-2">
+          <Button size="sm" disabled={isUpdating} onClick={() => void updateOrderStatus(order.id, "COMPLETED")}>
             Complete
-          </button>
-          <button className="danger" disabled={isUpdating} onClick={() => void updateOrderStatus(order.id, "CANCELLED")}>
+          </Button>
+          <Button
+            size="sm"
+            variant="danger"
+            disabled={isUpdating}
+            onClick={() => void updateOrderStatus(order.id, "CANCELLED")}
+          >
             Cancel
-          </button>
+          </Button>
         </div>
       );
     }
@@ -238,28 +261,33 @@ export const LiveOrdersPage = () => {
   };
 
   const renderOrderCard = (order: OrderSummary) => (
-    <article key={order.id} className={`order-card${freshOrderIds.has(order.id) ? " is-fresh" : ""}`}>
-      <div className="order-card-head">
+    <article
+      key={order.id}
+      className={`rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition duration-200 ${
+        freshOrderIds.has(order.id) ? "ring-2 ring-brand-300 ring-offset-2 animate-fade-in" : ""
+      }`}
+    >
+      <div className="mb-2 flex items-start justify-between gap-2">
         <div>
-          <strong>Order #{order.id}</strong>
-          <p className="muted">
+          <strong className="text-slate-900">Order #{order.id}</strong>
+          <p className="text-sm text-slate-500">
             {new Date(order.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })} | {order.type}
           </p>
         </div>
-        <span className={`status-badge status-${order.status.toLowerCase()}`}>{readableStatus(order.status)}</span>
+        <OrderStatusBadge status={order.status} />
       </div>
-      <p className="muted">
+      <p className="text-sm text-slate-600">
         {order.customerName} | {order.customerPhone}
       </p>
-      {order.deliveryAddress ? <p className="muted">{order.deliveryAddress}</p> : null}
-      <div className="order-lines">
+      {order.deliveryAddress ? <p className="text-sm text-slate-500">{order.deliveryAddress}</p> : null}
+      <div className="my-3 space-y-1">
         {order.items.map((item) => (
-          <p key={item.id} className="muted">
+          <p key={item.id} className="text-sm text-slate-500">
             {item.quantity} x {item.nameSnapshot} (NGN {Number(item.unitPriceSnapshot).toLocaleString()})
           </p>
         ))}
       </div>
-      <p>
+      <p className="mb-3">
         <strong>Total: NGN {Number(order.totalAmount).toLocaleString()}</strong>
       </p>
       {renderActions(order)}
@@ -267,112 +295,54 @@ export const LiveOrdersPage = () => {
   );
 
   if (loading) {
-    return (
-      <div className="center-page">
-        <div className="app-loader">
-          <p>
-            <span className="spinner" /> Loading live orders...
-          </p>
-        </div>
-      </div>
-    );
+    return <PageLoader message="Loading live orders..." />;
   }
 
   return (
-    <div className="app-shell">
-      <aside className="app-sidebar">
-        <div>
-          <h1 className="sidebar-brand">Dishpatch</h1>
-          <p className="sidebar-meta">{user?.restaurant.name}</p>
-        </div>
-        <nav className="sidebar-nav">
-          <Link className="sidebar-link" to="/dashboard">
-            Categories & Items
-          </Link>
-          <Link className="sidebar-link is-active" to="/dashboard/orders">
-            Live Orders
-          </Link>
-        </nav>
-        <div className="sidebar-footer">
-          <button
-            className="ghost"
-            onClick={() => {
-              void logout();
-            }}
-          >
-            Logout
-          </button>
-        </div>
-      </aside>
-
-      <main className="dashboard-main">
-        <div className="dashboard">
-          <header className="topbar">
-            <div>
-              <h2>Live Orders</h2>
-              <p className="muted">Realtime kitchen workflow for your restaurant team.</p>
-            </div>
-            <div className="topbar-actions">
-              {realtimeConnected ? <span className="status-pill connected">Realtime connected</span> : null}
-              {realtimeNotice ? <span className="status-pill disconnected">{realtimeNotice}</span> : null}
-              <button className="ghost" onClick={() => void fetchOrders(true)}>
-                Refresh
-              </button>
-            </div>
-          </header>
-
-          <div className="live-orders-toolbar">
-            <p className="muted">Updates are synced automatically for all staff signed into this restaurant.</p>
+    <AdminShell
+      user={user}
+      onLogout={() => {
+        void logout();
+      }}
+      title="Live Orders"
+      subtitle="Realtime kitchen workflow for your restaurant team."
+      actions={
+        <>
+          {realtimeConnected ? <Badge variant="success">Realtime connected</Badge> : null}
+          {realtimeNotice ? <Badge variant="danger">{realtimeNotice}</Badge> : null}
+          <Button variant="secondary" onClick={() => void fetchOrders(true)}>
+            Refresh
+          </Button>
+        </>
+      }
+    >
+      <p className="mb-4 text-sm text-slate-500">Updates are synced automatically for all staff signed into this restaurant.</p>
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+        <Card title="Awaiting Payment">
+          <div className="space-y-2">
+            {awaitingPayment.length ? awaitingPayment.map(renderOrderCard) : <EmptyState title="No unpaid orders" />}
           </div>
-
-          <main className="live-orders-board">
-            <section className="panel">
-              <div className="panel-head">
-                <h3>Awaiting Payment</h3>
-              </div>
-              <div className="order-list">
-                {awaitingPayment.length ? awaitingPayment.map(renderOrderCard) : <p className="empty-state">No unpaid orders.</p>}
-              </div>
-            </section>
-            <section className="panel">
-              <div className="panel-head">
-                <h3>Incoming / Paid</h3>
-              </div>
-              <div className="order-list">{incoming.length ? incoming.map(renderOrderCard) : <p className="empty-state">No paid orders.</p>}</div>
-            </section>
-            <section className="panel">
-              <div className="panel-head">
-                <h3>In Progress</h3>
-              </div>
-              <div className="order-list">
-                {inProgress.length ? inProgress.map(renderOrderCard) : <p className="empty-state">No orders in prep.</p>}
-              </div>
-            </section>
-            <section className="panel">
-              <div className="panel-head">
-                <h3>Ready</h3>
-              </div>
-              <div className="order-list">{ready.length ? ready.map(renderOrderCard) : <p className="empty-state">No ready orders.</p>}</div>
-            </section>
-            <section className="panel">
-              <div className="panel-head">
-                <h3>Completed</h3>
-              </div>
-              <div className="order-list">
-                {completed.length ? completed.map(renderOrderCard) : <p className="empty-state">No completed orders yet.</p>}
-              </div>
-            </section>
-            <section className="panel">
-              <div className="panel-head">
-                <h3>Closed</h3>
-              </div>
-              <div className="order-list">
-                {closed.length ? closed.map(renderOrderCard) : <p className="empty-state">No cancelled or failed orders.</p>}
-              </div>
-            </section>
-          </main>
-        </div>
-      </main>
-    </div>
+        </Card>
+        <Card title="Incoming / Paid">
+          <div className="space-y-2">{incoming.length ? incoming.map(renderOrderCard) : <EmptyState title="No paid orders" />}</div>
+        </Card>
+        <Card title="In Progress">
+          <div className="space-y-2">{inProgress.length ? inProgress.map(renderOrderCard) : <EmptyState title="No orders in prep" />}</div>
+        </Card>
+        <Card title="Ready">
+          <div className="space-y-2">{ready.length ? ready.map(renderOrderCard) : <EmptyState title="No ready orders" />}</div>
+        </Card>
+        <Card title="Completed">
+          <div className="space-y-2">
+            {completed.length ? completed.map(renderOrderCard) : <EmptyState title="No completed orders yet" />}
+          </div>
+        </Card>
+        <Card title="Closed">
+          <div className="space-y-2">
+            {closed.length ? closed.map(renderOrderCard) : <EmptyState title="No cancelled or failed orders" />}
+          </div>
+        </Card>
+      </div>
+    </AdminShell>
   );
 };

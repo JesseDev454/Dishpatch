@@ -1,7 +1,15 @@
 import { useEffect, useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
-import { publicApi } from "../lib/api";
 import { useToast } from "../context/ToastContext";
+import { publicApi } from "../lib/api";
+import { cn } from "../lib/cn";
+import { Button } from "../components/ui/Button";
+import { Card } from "../components/ui/Card";
+import { Drawer } from "../components/ui/Drawer";
+import { EmptyState } from "../components/ui/EmptyState";
+import { InputField } from "../components/ui/InputField";
+import { PageLoader } from "../components/ui/PageLoader";
+import { Skeleton } from "../components/ui/Skeleton";
 
 type PublicMenuItem = {
   id: number;
@@ -33,18 +41,24 @@ type CartLine = {
   quantity: number;
 };
 
+type CheckoutErrors = Partial<Record<"customerName" | "customerPhone" | "customerEmail" | "deliveryAddress", string>>;
+
 export const PublicOrderPage = () => {
   const { slug } = useParams();
   const { showToast } = useToast();
+
   const [menu, setMenu] = useState<MenuResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeCategoryId, setActiveCategoryId] = useState<number | null>(null);
   const [cartOpen, setCartOpen] = useState(false);
+
   const [customerName, setCustomerName] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
   const [customerEmail, setCustomerEmail] = useState("");
   const [orderType, setOrderType] = useState<"DELIVERY" | "PICKUP">("PICKUP");
   const [deliveryAddress, setDeliveryAddress] = useState("");
+  const [errors, setErrors] = useState<CheckoutErrors>({});
+
   const [cart, setCart] = useState<CartLine[]>([]);
   const [orderId, setOrderId] = useState<number | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -68,14 +82,10 @@ export const PublicOrderPage = () => {
     if (slug) {
       void fetchMenu();
     }
-  }, [slug]);
-
-  const cartTotal = useMemo(() => {
-    return cart.reduce((sum, line) => sum + Number(line.item.price) * line.quantity, 0);
-  }, [cart]);
+  }, [slug, showToast]);
 
   const activeCategory = useMemo(() => {
-    if (!menu || menu.categories.length === 0) {
+    if (!menu?.categories.length) {
       return null;
     }
     if (activeCategoryId === null) {
@@ -84,24 +94,49 @@ export const PublicOrderPage = () => {
     return menu.categories.find((category) => category.id === activeCategoryId) ?? menu.categories[0];
   }, [menu, activeCategoryId]);
 
+  const cartTotal = useMemo(() => cart.reduce((sum, line) => sum + Number(line.item.price) * line.quantity, 0), [cart]);
   const cartCount = useMemo(() => cart.reduce((sum, line) => sum + line.quantity, 0), [cart]);
 
   const updateCart = (item: PublicMenuItem, delta: number) => {
     if (!item.isAvailable) {
       return;
     }
+
     setCart((prev) => {
       const existing = prev.find((line) => line.item.id === item.id);
       if (!existing) {
         return delta > 0 ? [...prev, { item, quantity: 1 }] : prev;
       }
+
       const nextQuantity = existing.quantity + delta;
       if (nextQuantity <= 0) {
         return prev.filter((line) => line.item.id !== item.id);
       }
+
       return prev.map((line) => (line.item.id === item.id ? { ...line, quantity: nextQuantity } : line));
     });
+
     setOrderId(null);
+  };
+
+  const validateCheckout = () => {
+    const nextErrors: CheckoutErrors = {};
+
+    if (!customerName.trim()) {
+      nextErrors.customerName = "Customer name is required.";
+    }
+    if (!customerPhone.trim()) {
+      nextErrors.customerPhone = "Customer phone is required.";
+    }
+    if (!customerEmail.trim()) {
+      nextErrors.customerEmail = "Customer email is required.";
+    }
+    if (orderType === "DELIVERY" && !deliveryAddress.trim()) {
+      nextErrors.deliveryAddress = "Delivery address is required for delivery orders.";
+    }
+
+    setErrors(nextErrors);
+    return Object.keys(nextErrors).length === 0;
   };
 
   const createOrder = async () => {
@@ -112,20 +147,8 @@ export const PublicOrderPage = () => {
       showToast("Add at least one item to the cart.", "error");
       return;
     }
-    if (!customerName.trim()) {
-      showToast("Customer name is required.", "error");
-      return;
-    }
-    if (!customerPhone.trim()) {
-      showToast("Customer phone is required.", "error");
-      return;
-    }
-    if (!customerEmail.trim()) {
-      showToast("Customer email is required for payment.", "error");
-      return;
-    }
-    if (orderType === "DELIVERY" && !deliveryAddress.trim()) {
-      showToast("Delivery address is required for delivery orders.", "error");
+    if (!validateCheckout()) {
+      showToast("Please complete the checkout form.", "error");
       return;
     }
 
@@ -133,15 +156,15 @@ export const PublicOrderPage = () => {
     try {
       const response = await publicApi.post<{ order: { id: number } }>(`/public/restaurants/${slug}/orders`, {
         type: orderType,
-        customerName,
-        customerPhone,
+        customerName: customerName.trim(),
+        customerPhone: customerPhone.trim(),
         customerEmail: customerEmail.trim(),
-        deliveryAddress: orderType === "DELIVERY" ? deliveryAddress : null,
+        deliveryAddress: orderType === "DELIVERY" ? deliveryAddress.trim() : null,
         items: cart.map((line) => ({ itemId: line.item.id, quantity: line.quantity }))
       });
       setOrderId(response.data.order.id);
-      showToast("Order created. Proceed to payment.", "success");
       setCartOpen(true);
+      showToast("Order created. Proceed to payment.", "success");
     } catch (error: any) {
       showToast(error?.response?.data?.message ?? "Failed to create order", "error");
     } finally {
@@ -153,13 +176,11 @@ export const PublicOrderPage = () => {
     if (!orderId) {
       return;
     }
-
     setIsInitializingPayment(true);
     try {
-      const response = await publicApi.post<{ authorizationUrl: string; reference: string }>(
-        `/public/orders/${orderId}/paystack/initialize`,
-        { email: customerEmail.trim() }
-      );
+      const response = await publicApi.post<{ authorizationUrl: string }>(`/public/orders/${orderId}/paystack/initialize`, {
+        email: customerEmail.trim()
+      });
       window.location.href = response.data.authorizationUrl;
     } catch (error: any) {
       showToast(error?.response?.data?.message ?? "Failed to initialize payment", "error");
@@ -168,225 +189,237 @@ export const PublicOrderPage = () => {
     }
   };
 
-  if (loading) {
-    return (
-      <div className="center-page">
-        <div className="app-loader">
-          <p>
-            <span className="spinner" /> Loading menu...
-          </p>
-          <div style={{ marginTop: 12 }}>
-            <div className="skeleton skeleton-line" />
-            <div className="skeleton skeleton-line" />
-            <div className="skeleton skeleton-line" />
+  const renderCartPanel = () => (
+    <Card title="Checkout" subtitle="Customer details and order summary">
+      <div className="space-y-4">
+        <InputField
+          required
+          label="Full name"
+          value={customerName}
+          error={errors.customerName}
+          onChange={(event) => {
+            setCustomerName(event.target.value);
+            setOrderId(null);
+            setErrors((prev) => ({ ...prev, customerName: undefined }));
+          }}
+          placeholder="Your name"
+        />
+        <InputField
+          required
+          label="Phone"
+          value={customerPhone}
+          error={errors.customerPhone}
+          onChange={(event) => {
+            setCustomerPhone(event.target.value);
+            setOrderId(null);
+            setErrors((prev) => ({ ...prev, customerPhone: undefined }));
+          }}
+          placeholder="080..."
+        />
+        <InputField
+          required
+          label="Email (for Paystack)"
+          type="email"
+          value={customerEmail}
+          error={errors.customerEmail}
+          onChange={(event) => {
+            setCustomerEmail(event.target.value);
+            setOrderId(null);
+            setErrors((prev) => ({ ...prev, customerEmail: undefined }));
+          }}
+          placeholder="customer@email.com"
+        />
+        <div className="space-y-2">
+          <p className="text-sm font-medium text-slate-700">Order type</p>
+          <div className="grid grid-cols-2 gap-2 rounded-xl border border-slate-200 bg-slate-100 p-1">
+            <Button
+              type="button"
+              size="sm"
+              variant={orderType === "PICKUP" ? "primary" : "ghost"}
+              onClick={() => {
+                setOrderType("PICKUP");
+                setDeliveryAddress("");
+                setOrderId(null);
+                setErrors((prev) => ({ ...prev, deliveryAddress: undefined }));
+              }}
+            >
+              Pickup
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant={orderType === "DELIVERY" ? "primary" : "ghost"}
+              onClick={() => {
+                setOrderType("DELIVERY");
+                setOrderId(null);
+              }}
+            >
+              Delivery
+            </Button>
           </div>
         </div>
+        <InputField
+          label="Delivery address"
+          required={orderType === "DELIVERY"}
+          disabled={orderType === "PICKUP"}
+          value={deliveryAddress}
+          error={errors.deliveryAddress}
+          onChange={(event) => {
+            setDeliveryAddress(event.target.value);
+            setOrderId(null);
+            setErrors((prev) => ({ ...prev, deliveryAddress: undefined }));
+          }}
+          placeholder={orderType === "PICKUP" ? "Not required for pickup" : "Street, area, city"}
+        />
+      </div>
+
+      <div className="mt-6 space-y-3">
+        <p className="text-sm font-semibold text-slate-700">Cart items</p>
+        <div className="max-h-64 space-y-2 overflow-y-auto pr-1">
+          {cart.length === 0 ? (
+            <EmptyState title="Your cart is empty" description="Add menu items to continue." />
+          ) : (
+            cart.map((line) => (
+              <div key={line.item.id} className="flex items-center justify-between gap-2 rounded-xl border border-slate-200 bg-white p-3">
+                <div>
+                  <p className="font-semibold text-slate-900">{line.item.name}</p>
+                  <p className="text-sm text-slate-500">
+                    {line.quantity} x NGN {Number(line.item.price).toLocaleString()}
+                  </p>
+                </div>
+                <div className="inline-flex items-center gap-2">
+                  <Button type="button" variant="secondary" size="sm" onClick={() => updateCart(line.item, -1)}>
+                    -
+                  </Button>
+                  <span className="w-4 text-center text-sm font-semibold text-slate-900">{line.quantity}</span>
+                  <Button type="button" size="sm" onClick={() => updateCart(line.item, 1)}>
+                    +
+                  </Button>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      </div>
+
+      <div className="sticky bottom-0 mt-6 border-t border-slate-200 bg-white pt-4">
+        <p className="text-lg font-bold text-slate-900">Subtotal: NGN {cartTotal.toLocaleString()}</p>
+        <div className="mt-3 grid gap-2 sm:grid-cols-2">
+          <Button type="button" size="lg" className="w-full" loading={isSubmitting} onClick={createOrder}>
+            {isSubmitting ? "Creating..." : "Place Order"}
+          </Button>
+          <Button
+            type="button"
+            size="lg"
+            variant="secondary"
+            className="w-full"
+            loading={isInitializingPayment}
+            disabled={!orderId || isInitializingPayment}
+            onClick={payNow}
+          >
+            {isInitializingPayment ? "Redirecting..." : "Pay Now"}
+          </Button>
+        </div>
+        {orderId ? <p className="mt-2 text-sm text-slate-500">Order created: #{orderId}. Click Pay Now to continue.</p> : null}
+      </div>
+    </Card>
+  );
+
+  if (loading) {
+    return <PageLoader message="Loading menu..." />;
+  }
+
+  if (!menu) {
+    return (
+      <div className="grid min-h-screen place-items-center px-4">
+        <EmptyState title="Restaurant menu not available" description="Check the restaurant URL and try again." />
       </div>
     );
   }
 
-  if (!menu) {
-    return <div className="center-page">Restaurant menu not available.</div>;
-  }
-
   return (
-    <div className="public-page">
-      <header className="public-header">
-        <div className="public-header-inner">
-          <h1>{menu.restaurant.name}</h1>
-          <p className="muted">Order in minutes. Freshly prepared and ready to go.</p>
-          <div className="category-tabs">
+    <div className="min-h-screen bg-slate-50">
+      <header className="sticky top-0 z-30 border-b border-slate-200 bg-white/90 backdrop-blur">
+        <div className="mx-auto w-full max-w-7xl px-4 py-4">
+          <h1 className="text-2xl font-extrabold tracking-tight text-slate-900">{menu.restaurant.name}</h1>
+          <p className="mt-1 text-sm text-slate-500">Order in minutes. Freshly prepared and ready to go.</p>
+          <div className="no-scrollbar mt-3 flex gap-2 overflow-x-auto pb-1">
             {menu.categories.map((category) => (
-              <button
+              <Button
                 type="button"
                 key={category.id}
-                className={`category-tab${activeCategory?.id === category.id ? " is-active" : ""}`}
+                size="sm"
+                variant={activeCategory?.id === category.id ? "primary" : "secondary"}
                 onClick={() => setActiveCategoryId(category.id)}
               >
                 {category.name}
-              </button>
+              </Button>
             ))}
           </div>
         </div>
       </header>
 
-      <button type="button" className="public-cart-toggle" onClick={() => setCartOpen(true)}>
-        Cart ({cartCount}) - NGN {cartTotal.toLocaleString()}
-      </button>
-      <div className={`sheet-backdrop${cartOpen ? " is-open" : ""}`} onClick={() => setCartOpen(false)} />
-
-      <main className="menu-layout">
-        <section className="menu-column">
-          <article className="panel">
-            <div className="panel-head">
-              <h3>{activeCategory?.name ?? "Menu"}</h3>
-            </div>
-
+      <main className="mx-auto grid w-full max-w-7xl gap-4 px-4 py-6 lg:grid-cols-[minmax(0,1fr)_360px]">
+        <section>
+          <Card title={activeCategory?.name ?? "Menu"} subtitle="Select items to add to your cart.">
             {activeCategory && activeCategory.items.length > 0 ? (
-              <div className="menu-grid">
+              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
                 {activeCategory.items.map((item) => {
                   const quantity = cart.find((line) => line.item.id === item.id)?.quantity ?? 0;
                   return (
-                    <article key={item.id} className="menu-item-card">
-                      <div className="menu-item-media" />
-                      <div>
-                        <div className="menu-item-head">
-                          <h4 className="menu-item-title">{item.name}</h4>
-                          <p className="menu-item-price">NGN {Number(item.price).toLocaleString()}</p>
+                    <article key={item.id} className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
+                      <div className="mb-3 h-28 rounded-xl border border-sky-100 bg-gradient-to-br from-cyan-50 to-slate-100" />
+                      <div className="space-y-2">
+                        <div className="flex items-start justify-between gap-2">
+                          <h4 className="text-sm font-semibold text-slate-900">{item.name}</h4>
+                          <p className="text-sm font-bold text-brand-700">NGN {Number(item.price).toLocaleString()}</p>
                         </div>
-                        <p className="muted">{item.description || "Freshly made and prepared to order."}</p>
+                        <p className="text-sm text-slate-500">{item.description || "Freshly made and prepared to order."}</p>
                       </div>
-                      <div className="qty-control">
-                        <button type="button" className="ghost" onClick={() => updateCart(item, -1)} disabled={!item.isAvailable}>
-                          -
-                        </button>
-                        <span className="qty-count">{quantity}</span>
-                        <button type="button" onClick={() => updateCart(item, 1)} disabled={!item.isAvailable}>
-                          +
-                        </button>
+                      <div className="mt-3 flex items-center justify-between gap-2">
+                        <div className="inline-flex items-center gap-2">
+                          <Button type="button" size="sm" variant="secondary" disabled={!item.isAvailable} onClick={() => updateCart(item, -1)}>
+                            -
+                          </Button>
+                          <span className="w-4 text-center text-sm font-semibold text-slate-900">{quantity}</span>
+                          <Button type="button" size="sm" disabled={!item.isAvailable} onClick={() => updateCart(item, 1)}>
+                            +
+                          </Button>
+                        </div>
+                        <span className={cn("text-xs font-semibold", item.isAvailable ? "text-success-700" : "text-warning-700")}>
+                          {item.isAvailable ? "Available" : "Unavailable"}
+                        </span>
                       </div>
-                      {!item.isAvailable ? <p className="muted">Temporarily unavailable</p> : null}
                     </article>
                   );
                 })}
               </div>
+            ) : menu.categories.length ? (
+              <EmptyState title="No items in this category" description="Try another category tab." />
             ) : (
-              <p className="empty-state">No available items in this category right now.</p>
+              <div className="space-y-3">
+                <Skeleton className="h-24" />
+                <Skeleton className="h-24" />
+                <Skeleton className="h-24" />
+              </div>
             )}
-          </article>
+          </Card>
         </section>
 
-        <aside className={`cart-panel${cartOpen ? " is-open" : ""}`}>
-          <article className="cart-card">
-            <div className="panel-head">
-              <h3>Checkout</h3>
-              <button type="button" className="ghost" onClick={() => setCartOpen(false)}>
-                Close
-              </button>
-            </div>
-
-            <div className="customer-form">
-              <label>
-                Full name
-                <input
-                  required
-                  value={customerName}
-                  onChange={(event) => {
-                    setCustomerName(event.target.value);
-                    setOrderId(null);
-                  }}
-                  placeholder="Your name"
-                />
-              </label>
-              <label>
-                Phone
-                <input
-                  required
-                  value={customerPhone}
-                  onChange={(event) => {
-                    setCustomerPhone(event.target.value);
-                    setOrderId(null);
-                  }}
-                  placeholder="080..."
-                />
-              </label>
-              <label>
-                Email (for Paystack)
-                <input
-                  required
-                  type="email"
-                  value={customerEmail}
-                  onChange={(event) => {
-                    setCustomerEmail(event.target.value);
-                    setOrderId(null);
-                  }}
-                  placeholder="customer@email.com"
-                />
-              </label>
-              <div>
-                <p className="muted" style={{ marginBottom: 6 }}>
-                  Order type
-                </p>
-                <div className="segmented">
-                  <button
-                    type="button"
-                    className={orderType === "PICKUP" ? "is-selected" : ""}
-                    onClick={() => {
-                      setOrderType("PICKUP");
-                      setDeliveryAddress("");
-                      setOrderId(null);
-                    }}
-                  >
-                    Pickup
-                  </button>
-                  <button
-                    type="button"
-                    className={orderType === "DELIVERY" ? "is-selected" : ""}
-                    onClick={() => {
-                      setOrderType("DELIVERY");
-                      setOrderId(null);
-                    }}
-                  >
-                    Delivery
-                  </button>
-                </div>
-              </div>
-              <label>
-                Delivery address
-                <input
-                  required={orderType === "DELIVERY"}
-                  disabled={orderType === "PICKUP"}
-                  value={deliveryAddress}
-                  onChange={(event) => {
-                    setDeliveryAddress(event.target.value);
-                    setOrderId(null);
-                  }}
-                  placeholder={orderType === "PICKUP" ? "Not required for pickup" : "Street, area, city"}
-                />
-              </label>
-            </div>
-
-            <div>
-              <p className="muted">Cart items</p>
-              <div className="cart-lines">
-                {cart.length === 0 ? <p className="empty-state">Your cart is empty. Add menu items to continue.</p> : null}
-                {cart.map((line) => (
-                  <div key={line.item.id} className="cart-line">
-                    <div>
-                      <strong>{line.item.name}</strong>
-                      <p className="muted">
-                        {line.quantity} x NGN {Number(line.item.price).toLocaleString()}
-                      </p>
-                    </div>
-                    <div className="qty-control">
-                      <button type="button" className="ghost" onClick={() => updateCart(line.item, -1)}>
-                        -
-                      </button>
-                      <span className="qty-count">{line.quantity}</span>
-                      <button type="button" onClick={() => updateCart(line.item, 1)}>
-                        +
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div className="checkout-cta">
-              <p className="menu-item-price">Subtotal: NGN {cartTotal.toLocaleString()}</p>
-              <div className="actions">
-                <button type="button" onClick={createOrder} disabled={isSubmitting}>
-                  {isSubmitting ? "Creating..." : "Create Order"}
-                </button>
-                <button type="button" className="ghost" onClick={payNow} disabled={!orderId || isInitializingPayment}>
-                  {isInitializingPayment ? "Redirecting..." : "Pay Now"}
-                </button>
-              </div>
-              {orderId ? <p className="muted">Order created: #{orderId}. Click Pay Now to continue.</p> : null}
-            </div>
-          </article>
-        </aside>
+        <aside className="hidden lg:block lg:sticky lg:top-24 lg:h-fit">{renderCartPanel()}</aside>
       </main>
+
+      <button
+        type="button"
+        className="focus-ring fixed bottom-5 right-4 z-40 rounded-full bg-brand-500 px-4 py-3 text-sm font-semibold text-white shadow-card lg:hidden"
+        onClick={() => setCartOpen(true)}
+      >
+        Cart ({cartCount}) · NGN {cartTotal.toLocaleString()}
+      </button>
+
+      <Drawer open={cartOpen} onClose={() => setCartOpen(false)} title="Checkout">
+        <div className="pb-4">{renderCartPanel()}</div>
+      </Drawer>
     </div>
   );
 };

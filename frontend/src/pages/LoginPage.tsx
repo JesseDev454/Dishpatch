@@ -1,6 +1,8 @@
 import { FormEvent, useState } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
 import { AuthShell } from "../components/AuthShell";
+import { Button } from "../components/ui/Button";
+import { InputField } from "../components/ui/InputField";
 import { useAuth } from "../context/AuthContext";
 import { useToast } from "../context/ToastContext";
 import { getApiErrorMessage } from "../lib/errors";
@@ -43,33 +45,29 @@ export const LoginPage = () => {
       altLink="/register"
       altLabel="Register"
     >
-      <form onSubmit={onSubmit} className="auth-form">
-        <label>
-          Email
-          <input
-            required
-            type="email"
-            value={email}
-            onChange={(event) => setEmail(event.target.value)}
-            placeholder="admin@restaurant.com"
-            autoComplete="email"
-          />
-        </label>
-        <label>
-          Password
-          <input
-            required
-            type="password"
-            value={password}
-            onChange={(event) => setPassword(event.target.value)}
-            placeholder="Enter password"
-            autoComplete="current-password"
-          />
-        </label>
-        {error ? <p className="error-text">{error}</p> : null}
-        <button type="submit" disabled={submitting}>
+      <form onSubmit={onSubmit} className="space-y-4">
+        <InputField
+          required
+          label="Email"
+          type="email"
+          value={email}
+          onChange={(event) => setEmail(event.target.value)}
+          placeholder="admin@restaurant.com"
+          autoComplete="email"
+        />
+        <InputField
+          required
+          label="Password"
+          type="password"
+          value={password}
+          onChange={(event) => setPassword(event.target.value)}
+          placeholder="Enter password"
+          autoComplete="current-password"
+        />
+        {error ? <p className="text-sm font-medium text-danger-700">{error}</p> : null}
+        <Button type="submit" loading={submitting} className="w-full">
           {submitting ? "Signing in..." : "Sign In"}
-        </button>
+        </Button>
       </form>
     </AuthShell>
   );

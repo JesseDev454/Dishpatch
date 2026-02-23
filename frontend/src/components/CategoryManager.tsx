@@ -3,6 +3,10 @@ import { api } from "../lib/api";
 import { useToast } from "../context/ToastContext";
 import { getApiErrorMessage } from "../lib/errors";
 import { Category } from "../types";
+import { Button } from "./ui/Button";
+import { Card } from "./ui/Card";
+import { EmptyState } from "./ui/EmptyState";
+import { InputField } from "./ui/InputField";
 
 type CategoryManagerProps = {
   categories: Category[];
@@ -68,70 +72,71 @@ export const CategoryManager = ({ categories, onChange }: CategoryManagerProps) 
   };
 
   return (
-    <section className="panel">
-      <div className="panel-head">
-        <h3>Categories</h3>
-      </div>
-      <form className="inline-form" onSubmit={createCategory}>
-        <label>
-          Category name
-          <input
-            required
-            value={name}
-            onChange={(event) => setName(event.target.value)}
-            placeholder="e.g. Rice & Sides"
-          />
-        </label>
-        <label>
-          Sort order
-          <input
-            type="number"
-            value={sortOrder}
-            onChange={(event) => setSortOrder(event.target.value)}
-            placeholder="0"
-          />
-        </label>
-        <button type="submit">Add Category</button>
+    <Card title="Categories" subtitle="Organize your menu with clear category groups.">
+      <form className="mb-4 grid gap-3 md:grid-cols-[minmax(0,1fr)_140px_auto]" onSubmit={createCategory}>
+        <InputField
+          required
+          label="Category name"
+          value={name}
+          onChange={(event) => setName(event.target.value)}
+          placeholder="e.g. Rice & Sides"
+        />
+        <InputField
+          label="Sort order"
+          type="number"
+          value={sortOrder}
+          onChange={(event) => setSortOrder(event.target.value)}
+          placeholder="0"
+        />
+        <div className="flex items-end">
+          <Button type="submit" className="w-full">
+            Add Category
+          </Button>
+        </div>
       </form>
-      {error ? <p className="error-text">{error}</p> : null}
-      <div className="list">
-        {categories.length === 0 ? <p className="empty-state">No categories yet. Add your first category to organize items.</p> : null}
+      {error ? <p className="mb-3 text-sm font-medium text-danger-700">{error}</p> : null}
+      <div className="space-y-2">
+        {categories.length === 0 ? (
+          <EmptyState title="No categories yet" description="Add your first category to organize menu items." />
+        ) : null}
         {categories.map((category) => (
-          <div key={category.id} className="list-row">
+          <div key={category.id} className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
             {editingId === category.id ? (
-              <>
-                <input value={editName} onChange={(event) => setEditName(event.target.value)} />
-                <input
+              <div className="grid gap-2 md:grid-cols-[minmax(0,1fr)_130px_auto]">
+                <InputField value={editName} onChange={(event) => setEditName(event.target.value)} />
+                <InputField
                   type="number"
                   value={editSortOrder}
                   onChange={(event) => setEditSortOrder(event.target.value)}
                 />
-                <button type="button" onClick={() => void saveEdit(category.id)}>
-                  Save
-                </button>
-                <button type="button" className="ghost" onClick={() => setEditingId(null)}>
-                  Cancel
-                </button>
-              </>
+                <div className="flex items-center gap-2">
+                  <Button type="button" size="sm" onClick={() => void saveEdit(category.id)}>
+                    Save
+                  </Button>
+                  <Button type="button" size="sm" variant="secondary" onClick={() => setEditingId(null)}>
+                    Cancel
+                  </Button>
+                </div>
+              </div>
             ) : (
-              <>
+              <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
-                  <strong>{category.name}</strong>
-                  <p className="muted">Sort: {category.sortOrder}</p>
+                  <p className="font-semibold text-slate-900">{category.name}</p>
+                  <p className="text-sm text-slate-500">Sort order: {category.sortOrder}</p>
                 </div>
-                <div className="actions">
-                  <button type="button" className="ghost" onClick={() => startEdit(category)}>
+                <div className="flex gap-2">
+                  <Button type="button" size="sm" variant="secondary" onClick={() => startEdit(category)}>
                     Edit
-                  </button>
-                  <button type="button" className="danger" onClick={() => void deleteCategory(category.id)}>
+                  </Button>
+                  <Button type="button" size="sm" variant="danger" onClick={() => void deleteCategory(category.id)}>
                     Delete
-                  </button>
+                  </Button>
                 </div>
-              </>
+              </div>
             )}
           </div>
         ))}
       </div>
-    </section>
+    </Card>
   );
 };

@@ -271,6 +271,11 @@ VITE_API_BASE_URL=https://dishpatch-8g6e.onrender.com
 VITE_SOCKET_URL=https://dishpatch-8g6e.onrender.com
 ```
 
+After setting/changing Vercel env vars, trigger a fresh redeploy. Existing deployments keep old env values.
+In production, frontend API calls must resolve to:
+- `https://dishpatch-8g6e.onrender.com/auth/register`
+- `https://dishpatch-8g6e.onrender.com/auth/login`
+
 Frontend routes (`/payment/callback`, `/receipt/:reference`, etc.) are handled by SPA rewrite in `frontend/vercel.json`.
 
 ### 4) Paystack + Resend URLs

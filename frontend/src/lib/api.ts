@@ -2,11 +2,26 @@ import axios from "axios";
 
 const normalizeUrl = (value: string): string => value.replace(/\/$/, "");
 const absoluteUrlPattern = /^https?:\/\//i;
+const isProductionBuild = import.meta.env.PROD;
 
 const rawApiBaseUrl = import.meta.env.VITE_API_BASE_URL?.trim();
+
+if (isProductionBuild && (!rawApiBaseUrl || rawApiBaseUrl.length === 0)) {
+  throw new Error("Missing VITE_API_BASE_URL in production build.");
+}
+
+if (isProductionBuild && rawApiBaseUrl && !absoluteUrlPattern.test(rawApiBaseUrl)) {
+  throw new Error("VITE_API_BASE_URL must be an absolute URL in production.");
+}
+
 const apiBaseUrl = rawApiBaseUrl && rawApiBaseUrl.length > 0 ? normalizeUrl(rawApiBaseUrl) : "/api";
 
 const rawSocketUrl = import.meta.env.VITE_SOCKET_URL?.trim();
+
+if (isProductionBuild && rawSocketUrl && !absoluteUrlPattern.test(rawSocketUrl)) {
+  throw new Error("VITE_SOCKET_URL must be an absolute URL in production.");
+}
+
 const socketBaseUrl =
   rawSocketUrl && rawSocketUrl.length > 0
     ? normalizeUrl(rawSocketUrl)

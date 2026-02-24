@@ -38,10 +38,11 @@ export const Drawer = ({ open, onClose, title, children, className }: DrawerProp
       />
       <aside
         className={cn(
-          "fixed inset-x-0 bottom-0 z-50 max-h-[86vh] rounded-t-3xl border border-slate-200 bg-white p-4 shadow-card transition-transform duration-200 md:hidden",
+          "fixed inset-x-0 bottom-0 z-50 flex h-screen max-h-screen flex-col rounded-t-3xl border border-slate-200 bg-white p-4 shadow-card transition-transform duration-200 md:hidden",
           open ? "translate-y-0" : "translate-y-full",
           className
         )}
+        style={{ height: "100dvh", maxHeight: "100dvh" }}
       >
         <header className="mb-3 flex items-center justify-between gap-2">
           {title ? <h3 className="text-base font-semibold text-slate-900">{title}</h3> : <div />}
@@ -49,7 +50,7 @@ export const Drawer = ({ open, onClose, title, children, className }: DrawerProp
             Close
           </button>
         </header>
-        <div className="overflow-y-auto">{children}</div>
+        <div className="min-h-0 flex-1">{children}</div>
       </aside>
     </>
   );

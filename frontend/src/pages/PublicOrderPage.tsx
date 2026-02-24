@@ -44,6 +44,13 @@ type CartLine = {
 
 type CheckoutErrors = Partial<Record<"customerName" | "customerPhone" | "customerEmail" | "deliveryAddress", string>>;
 
+const ngnNumberFormatter = new Intl.NumberFormat("en-NG", {
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2
+});
+
+const formatNgn = (value: number): string => `NGN ${ngnNumberFormatter.format(value)}`;
+
 export const PublicOrderPage = () => {
   const { slug } = useParams();
   const { showToast } = useToast();
@@ -190,139 +197,177 @@ export const PublicOrderPage = () => {
     }
   };
 
-  const renderCartPanel = () => (
-    <Card title="Checkout" subtitle="Customer details and order summary">
-      <div className="space-y-4">
-        <InputField
-          required
-          label="Full name"
-          value={customerName}
-          error={errors.customerName}
-          onChange={(event) => {
-            setCustomerName(event.target.value);
-            setOrderId(null);
-            setErrors((prev) => ({ ...prev, customerName: undefined }));
-          }}
-          placeholder="Your name"
-        />
-        <InputField
-          required
-          label="Phone"
-          value={customerPhone}
-          error={errors.customerPhone}
-          onChange={(event) => {
-            setCustomerPhone(event.target.value);
-            setOrderId(null);
-            setErrors((prev) => ({ ...prev, customerPhone: undefined }));
-          }}
-          placeholder="080..."
-        />
-        <InputField
-          required
-          label="Email (for Paystack)"
-          type="email"
-          value={customerEmail}
-          error={errors.customerEmail}
-          onChange={(event) => {
-            setCustomerEmail(event.target.value);
-            setOrderId(null);
-            setErrors((prev) => ({ ...prev, customerEmail: undefined }));
-          }}
-          placeholder="customer@email.com"
-        />
-        <div className="space-y-2">
-          <p className="text-sm font-medium text-slate-700">Order type</p>
-          <div className="grid grid-cols-2 gap-2 rounded-xl border border-slate-200 bg-slate-100 p-1">
-            <Button
-              type="button"
-              size="sm"
-              variant={orderType === "PICKUP" ? "primary" : "ghost"}
-              onClick={() => {
-                setOrderType("PICKUP");
-                setDeliveryAddress("");
-                setOrderId(null);
-                setErrors((prev) => ({ ...prev, deliveryAddress: undefined }));
-              }}
-            >
-              Pickup
-            </Button>
-            <Button
-              type="button"
-              size="sm"
-              variant={orderType === "DELIVERY" ? "primary" : "ghost"}
-              onClick={() => {
-                setOrderType("DELIVERY");
-                setOrderId(null);
-              }}
-            >
-              Delivery
-            </Button>
-          </div>
-        </div>
-        <InputField
-          label="Delivery address"
-          required={orderType === "DELIVERY"}
-          disabled={orderType === "PICKUP"}
-          value={deliveryAddress}
-          error={errors.deliveryAddress}
-          onChange={(event) => {
-            setDeliveryAddress(event.target.value);
-            setOrderId(null);
-            setErrors((prev) => ({ ...prev, deliveryAddress: undefined }));
-          }}
-          placeholder={orderType === "PICKUP" ? "Not required for pickup" : "Street, area, city"}
-        />
-      </div>
+  const isPayNowStep = Boolean(orderId);
+  const primaryActionLoading = isPayNowStep ? isInitializingPayment : isSubmitting;
+  const primaryActionLabel = isPayNowStep
+    ? isInitializingPayment
+      ? "Redirecting..."
+      : "Pay Now"
+    : isSubmitting
+      ? "Creating..."
+      : "Place Order";
+  const primaryActionDisabled = cart.length === 0 || primaryActionLoading;
 
-      <div className="mt-6 space-y-3">
-        <p className="text-sm font-semibold text-slate-700">Cart items</p>
-        <div className="max-h-64 space-y-2 overflow-y-auto pr-1">
-          {cart.length === 0 ? (
-            <EmptyState title="Your cart is empty" description="Add menu items to continue." />
-          ) : (
-            cart.map((line) => (
-              <div key={line.item.id} className="flex items-center justify-between gap-2 rounded-xl border border-slate-200 bg-white p-3">
-                <div>
-                  <p className="font-semibold text-slate-900">{line.item.name}</p>
-                  <p className="text-sm text-slate-500">
-                    {line.quantity} x NGN {Number(line.item.price).toLocaleString()}
-                  </p>
-                </div>
-                <div className="inline-flex items-center gap-2">
-                  <Button type="button" variant="secondary" size="sm" onClick={() => updateCart(line.item, -1)}>
-                    -
-                  </Button>
-                  <span className="w-4 text-center text-sm font-semibold text-slate-900">{line.quantity}</span>
-                  <Button type="button" size="sm" onClick={() => updateCart(line.item, 1)}>
-                    +
-                  </Button>
-                </div>
-              </div>
-            ))
-          )}
-        </div>
-      </div>
+  const onPrimaryAction = () => {
+    if (isPayNowStep) {
+      void payNow();
+      return;
+    }
 
-      <div className="sticky bottom-0 mt-6 border-t border-slate-200 bg-white pt-4">
-        <p className="text-lg font-bold text-slate-900">Subtotal: NGN {cartTotal.toLocaleString()}</p>
-        <div className="mt-3 grid gap-2 sm:grid-cols-2">
-          <Button type="button" size="lg" className="w-full" loading={isSubmitting} onClick={createOrder}>
-            {isSubmitting ? "Creating..." : "Place Order"}
+    void createOrder();
+  };
+
+  const renderCheckoutForm = () => (
+    <div className="space-y-4">
+      <InputField
+        required
+        label="Full name"
+        value={customerName}
+        error={errors.customerName}
+        onChange={(event) => {
+          setCustomerName(event.target.value);
+          setOrderId(null);
+          setErrors((prev) => ({ ...prev, customerName: undefined }));
+        }}
+        placeholder="Your name"
+      />
+      <InputField
+        required
+        label="Phone"
+        value={customerPhone}
+        error={errors.customerPhone}
+        onChange={(event) => {
+          setCustomerPhone(event.target.value);
+          setOrderId(null);
+          setErrors((prev) => ({ ...prev, customerPhone: undefined }));
+        }}
+        placeholder="080..."
+      />
+      <InputField
+        required
+        label="Email (for Paystack)"
+        type="email"
+        value={customerEmail}
+        error={errors.customerEmail}
+        onChange={(event) => {
+          setCustomerEmail(event.target.value);
+          setOrderId(null);
+          setErrors((prev) => ({ ...prev, customerEmail: undefined }));
+        }}
+        placeholder="customer@email.com"
+      />
+      <div className="space-y-2">
+        <p className="text-sm font-medium text-slate-700">Order type</p>
+        <div className="grid grid-cols-2 gap-2 rounded-xl border border-slate-200 bg-slate-100 p-1">
+          <Button
+            type="button"
+            size="sm"
+            variant={orderType === "PICKUP" ? "primary" : "ghost"}
+            onClick={() => {
+              setOrderType("PICKUP");
+              setDeliveryAddress("");
+              setOrderId(null);
+              setErrors((prev) => ({ ...prev, deliveryAddress: undefined }));
+            }}
+          >
+            Pickup
           </Button>
           <Button
             type="button"
-            size="lg"
-            variant="secondary"
-            className="w-full"
-            loading={isInitializingPayment}
-            disabled={!orderId || isInitializingPayment}
-            onClick={payNow}
+            size="sm"
+            variant={orderType === "DELIVERY" ? "primary" : "ghost"}
+            onClick={() => {
+              setOrderType("DELIVERY");
+              setOrderId(null);
+            }}
           >
-            {isInitializingPayment ? "Redirecting..." : "Pay Now"}
+            Delivery
           </Button>
         </div>
-        {orderId ? <p className="mt-2 text-sm text-slate-500">Order created: #{orderId}. Click Pay Now to continue.</p> : null}
       </div>
+      <InputField
+        label="Delivery address"
+        required={orderType === "DELIVERY"}
+        disabled={orderType === "PICKUP"}
+        value={deliveryAddress}
+        error={errors.deliveryAddress}
+        onChange={(event) => {
+          setDeliveryAddress(event.target.value);
+          setOrderId(null);
+          setErrors((prev) => ({ ...prev, deliveryAddress: undefined }));
+        }}
+        placeholder={orderType === "PICKUP" ? "Not required for pickup" : "Street, area, city"}
+      />
+    </div>
+  );
+
+  const renderCartItemsSection = (isMobile = false) => (
+    <div className="space-y-3">
+      <p className="text-sm font-semibold text-slate-700">Cart items</p>
+      <div className={cn("space-y-2", isMobile ? "" : "max-h-64 overflow-y-auto pr-1")}>
+        {cart.length === 0 ? (
+          <EmptyState title="Cart is empty" description="Add menu items to continue." />
+        ) : (
+          cart.map((line) => (
+            <div key={line.item.id} className="flex items-center justify-between gap-2 rounded-xl border border-slate-200 bg-white p-3">
+              <div>
+                <p className="font-semibold text-slate-900">{line.item.name}</p>
+                <p className="text-sm text-slate-500">
+                  {line.quantity} x {formatNgn(Number(line.item.price))}
+                </p>
+              </div>
+              <div className="inline-flex items-center gap-2">
+                <Button type="button" variant="secondary" size="sm" onClick={() => updateCart(line.item, -1)}>
+                  -
+                </Button>
+                <span className="w-4 text-center text-sm font-semibold text-slate-900">{line.quantity}</span>
+                <Button type="button" size="sm" onClick={() => updateCart(line.item, 1)}>
+                  +
+                </Button>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+    </div>
+  );
+
+  const renderCheckoutFooter = (isMobile = false) => (
+    <div
+      className={cn(
+        "border-t border-slate-200 bg-white",
+        isMobile ? "sticky bottom-0 z-20 mt-4 px-1 pt-4 shadow-[0_-8px_20px_rgba(15,23,42,0.08)]" : "mt-6 pt-4"
+      )}
+      style={
+        isMobile
+          ? {
+              paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 0.75rem)"
+            }
+          : undefined
+      }
+    >
+      <p className="text-lg font-bold text-slate-900">Subtotal: {formatNgn(cartTotal)}</p>
+      <Button
+        type="button"
+        size="lg"
+        className="mt-3 w-full"
+        loading={primaryActionLoading}
+        disabled={primaryActionDisabled}
+        onClick={onPrimaryAction}
+      >
+        {primaryActionLabel}
+      </Button>
+      {orderId ? <p className="mt-2 text-sm text-slate-500">Order created: #{orderId}. Click Pay Now to continue.</p> : null}
+    </div>
+  );
+
+  const renderCartPanel = () => (
+    <Card title="Checkout" subtitle="Customer details and order summary">
+      <div className="space-y-6">
+        {renderCheckoutForm()}
+        {renderCartItemsSection()}
+      </div>
+      {renderCheckoutFooter()}
     </Card>
   );
 
@@ -423,11 +468,19 @@ export const PublicOrderPage = () => {
         className="focus-ring fixed bottom-5 right-4 z-40 rounded-full bg-brand-500 px-4 py-3 text-sm font-semibold text-white shadow-card lg:hidden"
         onClick={() => setCartOpen(true)}
       >
-        Cart ({cartCount}) - NGN {cartTotal.toLocaleString()}
+        Cart ({cartCount}) - {formatNgn(cartTotal)}
       </button>
 
       <Drawer open={cartOpen} onClose={() => setCartOpen(false)} title="Checkout">
-        <div className="pb-4">{renderCartPanel()}</div>
+        <div className="flex h-full flex-col overflow-hidden">
+          <div className="min-h-0 flex-1 overflow-y-auto pb-2">
+            <div className="space-y-6">
+              {renderCheckoutForm()}
+              {renderCartItemsSection(true)}
+            </div>
+          </div>
+          {renderCheckoutFooter(true)}
+        </div>
       </Drawer>
     </div>
   );

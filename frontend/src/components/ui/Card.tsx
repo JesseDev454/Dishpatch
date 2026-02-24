@@ -1,5 +1,5 @@
 import { HTMLAttributes, ReactNode } from "react";
-import { cn } from "../../lib/cn";
+import { cn } from "@/lib/utils";
 
 type CardProps = HTMLAttributes<HTMLDivElement> & {
   title?: ReactNode;
@@ -9,17 +9,18 @@ type CardProps = HTMLAttributes<HTMLDivElement> & {
 
 export const Card = ({ className, children, title, subtitle, action, ...props }: CardProps) => {
   return (
-    <section className={cn("card-base p-5", className)} {...props}>
+    <section className={cn("rounded-xl border bg-card text-card-foreground shadow-soft", className)} {...props}>
       {title || action ? (
-        <header className="mb-4 flex items-start justify-between gap-3">
+        <header className="flex items-start justify-between gap-3 border-b px-5 py-4">
           <div>
-            {title ? <h3 className="text-base font-semibold tracking-tight text-slate-900">{title}</h3> : null}
-            {subtitle ? <p className="mt-1 text-sm text-slate-500">{subtitle}</p> : null}
+            {title ? <h3 className="text-base font-semibold tracking-tight text-foreground">{title}</h3> : null}
+            {subtitle ? <p className="mt-1 text-sm text-muted-foreground">{subtitle}</p> : null}
           </div>
           {action ? <div>{action}</div> : null}
         </header>
       ) : null}
-      {children}
+      <div className="p-5">{children}</div>
     </section>
   );
 };
+

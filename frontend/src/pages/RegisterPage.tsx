@@ -3,6 +3,7 @@ import { Navigate, useNavigate } from "react-router-dom";
 import { AuthShell } from "../components/AuthShell";
 import { Button } from "../components/ui/Button";
 import { InputField } from "../components/ui/InputField";
+import { Separator } from "../components/ui/Separator";
 import { useAuth } from "../context/AuthContext";
 import { useToast } from "../context/ToastContext";
 import { getApiErrorMessage } from "../lib/errors";
@@ -73,7 +74,12 @@ export const RegisterPage = () => {
           placeholder="Minimum 8 characters"
           autoComplete="new-password"
         />
-        {error ? <p className="text-sm font-medium text-danger-700">{error}</p> : null}
+        {error ? (
+          <div className="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm font-medium text-destructive">
+            {error}
+          </div>
+        ) : null}
+        <Separator />
         <Button type="submit" loading={submitting} className="w-full">
           {submitting ? "Creating account..." : "Create Account"}
         </Button>

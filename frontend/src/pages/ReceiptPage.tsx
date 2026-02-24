@@ -5,6 +5,7 @@ import { Card } from "../components/ui/Card";
 import { Badge } from "../components/ui/Badge";
 import { EmptyState } from "../components/ui/EmptyState";
 import { PageLoader } from "../components/ui/PageLoader";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../components/ui/Table";
 import { publicApi } from "../lib/api";
 
 type ReceiptResponse = {
@@ -115,38 +116,26 @@ export const ReceiptPage = () => {
 
         <section>
           <h2 className="mb-2 text-base font-semibold text-slate-900">Items</h2>
-          <table className="w-full border-collapse">
-            <thead>
-              <tr>
-                <th className="border-b border-slate-200 px-2 py-2 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
-                  Item
-                </th>
-                <th className="border-b border-slate-200 px-2 py-2 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
-                  Unit
-                </th>
-                <th className="border-b border-slate-200 px-2 py-2 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
-                  Qty
-                </th>
-                <th className="border-b border-slate-200 px-2 py-2 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
-                  Line Total
-                </th>
-              </tr>
-            </thead>
-            <tbody>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Item</TableHead>
+                <TableHead>Unit</TableHead>
+                <TableHead>Qty</TableHead>
+                <TableHead>Line Total</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {receipt.items.map((item, index) => (
-                <tr key={`${item.nameSnapshot}-${index}`}>
-                  <td className="border-b border-slate-100 px-2 py-2 text-sm text-slate-700">{item.nameSnapshot}</td>
-                  <td className="border-b border-slate-100 px-2 py-2 text-sm text-slate-600">
-                    NGN {Number(item.unitPriceSnapshot).toLocaleString()}
-                  </td>
-                  <td className="border-b border-slate-100 px-2 py-2 text-sm text-slate-600">{item.quantity}</td>
-                  <td className="border-b border-slate-100 px-2 py-2 text-sm font-semibold text-slate-800">
-                    NGN {Number(item.lineTotal).toLocaleString()}
-                  </td>
-                </tr>
+                <TableRow key={`${item.nameSnapshot}-${index}`}>
+                  <TableCell>{item.nameSnapshot}</TableCell>
+                  <TableCell>NGN {Number(item.unitPriceSnapshot).toLocaleString()}</TableCell>
+                  <TableCell>{item.quantity}</TableCell>
+                  <TableCell className="font-semibold">NGN {Number(item.lineTotal).toLocaleString()}</TableCell>
+                </TableRow>
               ))}
-            </tbody>
-          </table>
+            </TableBody>
+          </Table>
         </section>
 
         <footer className="mt-6 border-t border-slate-200 pt-4">

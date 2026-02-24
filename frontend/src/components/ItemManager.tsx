@@ -1,14 +1,25 @@
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { AxiosProgressEvent } from "axios";
+import { ImagePlus, MoreHorizontal, Plus, Trash2 } from "lucide-react";
 import { api } from "../lib/api";
 import { useToast } from "../context/ToastContext";
 import { getApiErrorMessage } from "../lib/errors";
 import { Category, Item } from "../types";
+import { Badge } from "./ui/Badge";
 import { Button } from "./ui/Button";
 import { Card } from "./ui/Card";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "./ui/Dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger
+} from "./ui/DropdownMenu";
 import { EmptyState } from "./ui/EmptyState";
 import { InputField } from "./ui/InputField";
 import { SelectField } from "./ui/SelectField";
+import { Switch } from "./ui/Switch";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "./ui/Table";
 
 type ItemManagerProps = {
   items: Item[];
@@ -50,18 +61,27 @@ const validateImageFile = (file: File): string | null => {
 export const ItemManager = ({ items, categories, onChange }: ItemManagerProps) => {
   const { showToast } = useToast();
   const [form, setForm] = useState<ItemFormState>(emptyItemForm);
-  const [editingId, setEditingId] = useState<number | null>(null);
-  const [editingForm, setEditingForm] = useState<ItemFormState>(emptyItemForm);
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [error, setError] = useState<string | null>(null);
+
+  const [createDialogOpen, setCreateDialogOpen] = useState(false);
+  const [creatingItem, setCreatingItem] = useState(false);
   const [createImageFile, setCreateImageFile] = useState<File | null>(null);
   const [createImagePreview, setCreateImagePreview] = useState<string | null>(null);
-  const [creatingItem, setCreatingItem] = useState(false);
   const [createUploadProgress, setCreateUploadProgress] = useState<number | null>(null);
-  const [uploadingItemIds, setUploadingItemIds] = useState<Set<number>>(new Set());
-  const [uploadProgressByItem, setUploadProgressByItem] = useState<Record<number, number>>({});
+
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editingForm, setEditingForm] = useState<ItemFormState>(emptyItemForm);
+  const [savingEdit, setSavingEdit] = useState(false);
   const [editingImageFile, setEditingImageFile] = useState<File | null>(null);
   const [editingImagePreview, setEditingImagePreview] = useState<string | null>(null);
+  const [editUploadProgress, setEditUploadProgress] = useState<number | null>(null);
+
+  const [removingImageIds, setRemovingImageIds] = useState<Set<number>>(new Set());
+  const [deletingIds, setDeletingIds] = useState<Set<number>>(new Set());
+  const [togglingIds, setTogglingIds] = useState<Set<number>>(new Set());
+  const uploadInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     return () => {
@@ -80,18 +100,6 @@ export const ItemManager = ({ items, categories, onChange }: ItemManagerProps) =
     }
     return items.filter((item) => item.categoryId === Number(categoryFilter));
   }, [items, categoryFilter]);
-
-  const setItemUploading = (itemId: number, uploading: boolean) => {
-    setUploadingItemIds((prev) => {
-      const next = new Set(prev);
-      if (uploading) {
-        next.add(itemId);
-      } else {
-        next.delete(itemId);
-      }
-      return next;
-    });
-  };
 
   const uploadItemImage = async (
     itemId: number,
@@ -121,189 +129,10 @@ export const ItemManager = ({ items, categories, onChange }: ItemManagerProps) =
     });
   };
 
-  const createItem = async (event: FormEvent) => {
-    event.preventDefault();
-    setError(null);
-    setCreatingItem(true);
-
-    try {
-      const createResponse = await api.post<{ item: Item }>("/items", {
-        categoryId: Number(form.categoryId),
-        name: form.name,
-        description: form.description || null,
-        price: Number(form.price),
-        isAvailable: form.isAvailable
-      });
-
-      const createdItem = createResponse.data.item;
-
-      if (createImageFile) {
-        try {
-          await uploadItemImage(createdItem.id, createImageFile, (progress) => setCreateUploadProgress(progress));
-        } catch (imageError: unknown) {
-          showToast(
-            getApiErrorMessage(imageError, "Item created but image upload failed"),
-            "error"
-          );
-        }
-      }
-
-      setForm(emptyItemForm);
-      setCreateImageFile(null);
-      if (createImagePreview) {
-        URL.revokeObjectURL(createImagePreview);
-      }
-      setCreateImagePreview(null);
-      setCreateUploadProgress(null);
-
-      await onChange();
-      showToast("Item created successfully.", "success");
-    } catch (error: unknown) {
-      const message = getApiErrorMessage(error, "Failed to create item");
-      setError(message);
-      showToast(message, "error");
-    } finally {
-      setCreatingItem(false);
-    }
-  };
-
-  const startEdit = (item: Item) => {
-    setEditingId(item.id);
-    setEditingForm({
-      categoryId: String(item.categoryId),
-      name: item.name,
-      description: item.description ?? "",
-      price: item.price,
-      isAvailable: item.isAvailable
-    });
-    setEditingImageFile(null);
-    if (editingImagePreview) {
-      URL.revokeObjectURL(editingImagePreview);
-      setEditingImagePreview(null);
-    }
-  };
-
-  const saveEdit = async (id: number) => {
-    setError(null);
-    try {
-      await api.patch(`/items/${id}`, {
-        categoryId: Number(editingForm.categoryId),
-        name: editingForm.name,
-        description: editingForm.description || null,
-        price: Number(editingForm.price),
-        isAvailable: editingForm.isAvailable
-      });
-
-      if (editingImageFile) {
-        setItemUploading(id, true);
-        try {
-          await uploadItemImage(id, editingImageFile, (progress) =>
-            setUploadProgressByItem((prev) => ({ ...prev, [id]: progress }))
-          );
-        } finally {
-          setItemUploading(id, false);
-          setUploadProgressByItem((prev) => {
-            const next = { ...prev };
-            delete next[id];
-            return next;
-          });
-        }
-      }
-
-      setEditingId(null);
-      setEditingImageFile(null);
-      if (editingImagePreview) {
-        URL.revokeObjectURL(editingImagePreview);
-        setEditingImagePreview(null);
-      }
-      await onChange();
-      showToast("Item updated.", "success");
-    } catch (error: unknown) {
-      const message = getApiErrorMessage(error, "Failed to update item");
-      setError(message);
-      showToast(message, "error");
-    }
-  };
-
-  const deleteItem = async (id: number) => {
-    setError(null);
-    try {
-      await api.delete(`/items/${id}`);
-      await onChange();
-      showToast("Item deleted.", "success");
-    } catch (error: unknown) {
-      const message = getApiErrorMessage(error, "Failed to delete item");
-      setError(message);
-      showToast(message, "error");
-    }
-  };
-
-  const toggleAvailability = async (item: Item) => {
-    setError(null);
-    try {
-      await api.patch(`/items/${item.id}`, { isAvailable: !item.isAvailable });
-      await onChange();
-      showToast(`Item marked as ${item.isAvailable ? "unavailable" : "available"}.`, "success");
-    } catch (error: unknown) {
-      const message = getApiErrorMessage(error, "Failed to update availability");
-      setError(message);
-      showToast(message, "error");
-    }
-  };
-
-  const removeImage = async (itemId: number) => {
-    setError(null);
-    setItemUploading(itemId, true);
-    try {
-      await api.delete(`/items/${itemId}/image`);
-      await onChange();
-      showToast("Item image removed.", "success");
-    } catch (error: unknown) {
-      const message = getApiErrorMessage(error, "Failed to remove item image");
-      setError(message);
-      showToast(message, "error");
-    } finally {
-      setItemUploading(itemId, false);
-      setUploadProgressByItem((prev) => {
-        const next = { ...prev };
-        delete next[itemId];
-        return next;
-      });
-    }
-  };
-
-  const handleItemImageSelection = async (itemId: number, file: File | null) => {
-    if (!file) {
-      return;
-    }
-
-    setItemUploading(itemId, true);
-    setError(null);
-    try {
-      await uploadItemImage(itemId, file, (progress) =>
-        setUploadProgressByItem((prev) => ({ ...prev, [itemId]: progress }))
-      );
-      await onChange();
-      showToast("Item image uploaded.", "success");
-    } catch (error: unknown) {
-      const message = getApiErrorMessage(error, "Failed to upload item image");
-      setError(message);
-      showToast(message, "error");
-    } finally {
-      setItemUploading(itemId, false);
-      setUploadProgressByItem((prev) => {
-        const next = { ...prev };
-        delete next[itemId];
-        return next;
-      });
-    }
-  };
-
   const setCreateImageFromFile = (file: File | null) => {
     if (!file) {
       return;
     }
-
     const validationError = validateImageFile(file);
     if (validationError) {
       setError(validationError);
@@ -319,298 +148,452 @@ export const ItemManager = ({ items, categories, onChange }: ItemManagerProps) =
     setCreateImagePreview(URL.createObjectURL(file));
   };
 
+  const setEditImageFromFile = (file: File | null) => {
+    if (!file) {
+      return;
+    }
+    const validationError = validateImageFile(file);
+    if (validationError) {
+      setError(validationError);
+      showToast(validationError, "error");
+      return;
+    }
+
+    setError(null);
+    setEditingImageFile(file);
+    if (editingImagePreview) {
+      URL.revokeObjectURL(editingImagePreview);
+    }
+    setEditingImagePreview(URL.createObjectURL(file));
+  };
+
+  const resetCreateState = () => {
+    setForm(emptyItemForm);
+    setCreateImageFile(null);
+    setCreateUploadProgress(null);
+    if (createImagePreview) {
+      URL.revokeObjectURL(createImagePreview);
+      setCreateImagePreview(null);
+    }
+  };
+
+  const startEdit = (item: Item) => {
+    setEditingId(item.id);
+    setEditingForm({
+      categoryId: String(item.categoryId),
+      name: item.name,
+      description: item.description ?? "",
+      price: item.price,
+      isAvailable: item.isAvailable
+    });
+    setEditingImageFile(null);
+    setEditUploadProgress(null);
+    if (editingImagePreview) {
+      URL.revokeObjectURL(editingImagePreview);
+      setEditingImagePreview(null);
+    }
+    setEditDialogOpen(true);
+  };
+
+  const createItem = async (event: FormEvent) => {
+    event.preventDefault();
+    setError(null);
+    setCreatingItem(true);
+
+    try {
+      const createResponse = await api.post<{ item: Item }>("/items", {
+        categoryId: Number(form.categoryId),
+        name: form.name,
+        description: form.description || null,
+        price: Number(form.price),
+        isAvailable: form.isAvailable
+      });
+
+      const createdItem = createResponse.data.item;
+      if (createImageFile) {
+        await uploadItemImage(createdItem.id, createImageFile, (progress) => setCreateUploadProgress(progress));
+      }
+
+      await onChange();
+      resetCreateState();
+      setCreateDialogOpen(false);
+      showToast("Item created successfully.", "success");
+    } catch (error: unknown) {
+      const message = getApiErrorMessage(error, "Failed to create item");
+      setError(message);
+      showToast(message, "error");
+    } finally {
+      setCreatingItem(false);
+    }
+  };
+
+  const saveEdit = async (event: FormEvent) => {
+    event.preventDefault();
+    if (!editingId) {
+      return;
+    }
+
+    setError(null);
+    setSavingEdit(true);
+    try {
+      await api.patch(`/items/${editingId}`, {
+        categoryId: Number(editingForm.categoryId),
+        name: editingForm.name,
+        description: editingForm.description || null,
+        price: Number(editingForm.price),
+        isAvailable: editingForm.isAvailable
+      });
+
+      if (editingImageFile) {
+        await uploadItemImage(editingId, editingImageFile, (progress) => setEditUploadProgress(progress));
+      }
+
+      await onChange();
+      setEditDialogOpen(false);
+      showToast("Item updated.", "success");
+    } catch (error: unknown) {
+      const message = getApiErrorMessage(error, "Failed to update item");
+      setError(message);
+      showToast(message, "error");
+    } finally {
+      setSavingEdit(false);
+    }
+  };
+
+  const deleteItem = async (id: number) => {
+    setError(null);
+    setDeletingIds((prev) => new Set(prev).add(id));
+    try {
+      await api.delete(`/items/${id}`);
+      await onChange();
+      showToast("Item deleted.", "success");
+    } catch (error: unknown) {
+      const message = getApiErrorMessage(error, "Failed to delete item");
+      setError(message);
+      showToast(message, "error");
+    } finally {
+      setDeletingIds((prev) => {
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
+      });
+    }
+  };
+
+  const removeImage = async (itemId: number) => {
+    setError(null);
+    setRemovingImageIds((prev) => new Set(prev).add(itemId));
+    try {
+      await api.delete(`/items/${itemId}/image`);
+      await onChange();
+      showToast("Item image removed.", "success");
+    } catch (error: unknown) {
+      const message = getApiErrorMessage(error, "Failed to remove item image");
+      setError(message);
+      showToast(message, "error");
+    } finally {
+      setRemovingImageIds((prev) => {
+        const next = new Set(prev);
+        next.delete(itemId);
+        return next;
+      });
+    }
+  };
+
+  const toggleAvailability = async (item: Item) => {
+    setError(null);
+    setTogglingIds((prev) => new Set(prev).add(item.id));
+    try {
+      await api.patch(`/items/${item.id}`, { isAvailable: !item.isAvailable });
+      await onChange();
+      showToast(`Item marked as ${item.isAvailable ? "unavailable" : "available"}.`, "success");
+    } catch (error: unknown) {
+      const message = getApiErrorMessage(error, "Failed to update availability");
+      setError(message);
+      showToast(message, "error");
+    } finally {
+      setTogglingIds((prev) => {
+        const next = new Set(prev);
+        next.delete(item.id);
+        return next;
+      });
+    }
+  };
+
+  const activeEditingItem = editingId ? items.find((item) => item.id === editingId) ?? null : null;
+
   return (
-    <Card title="Items" subtitle="Add, edit, and manage menu item availability.">
-      <form className="grid gap-3" onSubmit={createItem}>
-        <div className="grid gap-3 md:grid-cols-2">
-          <SelectField
-            required
-            label="Category"
-            value={form.categoryId}
-            onChange={(event) => setForm((prev) => ({ ...prev, categoryId: event.target.value }))}
-          >
-            <option value="">Select category</option>
-            {categories.map((category) => (
-              <option key={category.id} value={category.id}>
-                {category.name}
-              </option>
-            ))}
-          </SelectField>
-          <InputField
-            required
-            label="Item name"
-            value={form.name}
-            onChange={(event) => setForm((prev) => ({ ...prev, name: event.target.value }))}
-            placeholder="e.g. Jollof Rice + Chicken"
-          />
-        </div>
-        <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_200px]">
-          <InputField
-            label="Description"
-            value={form.description}
-            onChange={(event) => setForm((prev) => ({ ...prev, description: event.target.value }))}
-            placeholder="Short details"
-          />
-          <InputField
-            required
-            label="Price (NGN)"
-            type="number"
-            step="0.01"
-            min="0"
-            value={form.price}
-            onChange={(event) => setForm((prev) => ({ ...prev, price: event.target.value }))}
-            placeholder="0.00"
-          />
-        </div>
-        <label className="inline-flex items-center gap-2 text-sm font-medium text-slate-700">
-          <input
-            type="checkbox"
-            className="h-4 w-4 rounded border-slate-300 text-brand-500 focus:ring-brand-200"
-            checked={form.isAvailable}
-            onChange={(event) => setForm((prev) => ({ ...prev, isAvailable: event.target.checked }))}
-          />
-          Available
-        </label>
-
-        <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
-          <p className="text-sm font-medium text-slate-700">Item image (optional)</p>
-          <p className="mt-1 text-xs text-slate-500">JPEG, PNG or WEBP up to 2MB.</p>
-          <div className="mt-2 flex flex-wrap items-center gap-3">
-            <label className="inline-flex cursor-pointer items-center rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100">
-              Choose image
-              <input
-                type="file"
-                accept="image/jpeg,image/png,image/webp"
-                className="hidden"
-                onChange={(event) => setCreateImageFromFile(event.target.files?.[0] ?? null)}
-              />
-            </label>
-            {createImagePreview ? (
-              <img src={createImagePreview} alt="Item preview" className="h-14 w-14 rounded-lg object-cover" />
-            ) : (
-              <div className="flex h-14 w-14 items-center justify-center rounded-lg border border-dashed border-slate-300 text-xs text-slate-400">
-                No image
-              </div>
-            )}
-            {createImageFile ? (
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                onClick={() => {
-                  setCreateImageFile(null);
-                  if (createImagePreview) {
-                    URL.revokeObjectURL(createImagePreview);
-                    setCreateImagePreview(null);
-                  }
-                }}
+    <Card
+      title="Items"
+      subtitle="Add, edit, and manage menu item availability."
+      action={
+        <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
+          <DialogTrigger asChild>
+            <Button size="sm" disabled={categories.length === 0}>
+              <Plus className="mr-1 h-4 w-4" />
+              New Item
+            </Button>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Create Menu Item</DialogTitle>
+              <DialogDescription>Add item details and optional image.</DialogDescription>
+            </DialogHeader>
+            <form onSubmit={createItem} className="space-y-4">
+              <SelectField
+                required
+                label="Category"
+                value={form.categoryId}
+                onChange={(event) => setForm((prev) => ({ ...prev, categoryId: event.target.value }))}
               >
-                Clear
-              </Button>
-            ) : null}
-          </div>
-          {createUploadProgress !== null ? (
-            <p className="mt-2 text-xs font-medium text-brand-700">Uploading image... {createUploadProgress}%</p>
-          ) : null}
-        </div>
-
-        <div className="flex flex-wrap items-center gap-2">
-          <Button type="submit" disabled={categories.length === 0} loading={creatingItem}>
-            Add Menu Item
-          </Button>
-          {categories.length === 0 ? <p className="text-sm text-slate-500">Create a category before adding items.</p> : null}
-        </div>
-      </form>
-
-      <div className="mt-5">
+                <option value="">Select category</option>
+                {categories.map((category) => (
+                  <option key={category.id} value={category.id}>
+                    {category.name}
+                  </option>
+                ))}
+              </SelectField>
+              <InputField
+                required
+                label="Item name"
+                value={form.name}
+                onChange={(event) => setForm((prev) => ({ ...prev, name: event.target.value }))}
+              />
+              <InputField
+                label="Description"
+                value={form.description}
+                onChange={(event) => setForm((prev) => ({ ...prev, description: event.target.value }))}
+              />
+              <InputField
+                required
+                label="Price (NGN)"
+                type="number"
+                step="0.01"
+                min="0"
+                value={form.price}
+                onChange={(event) => setForm((prev) => ({ ...prev, price: event.target.value }))}
+              />
+              <div className="flex items-center justify-between rounded-lg border px-3 py-2">
+                <span className="text-sm font-medium">Available</span>
+                <Switch
+                  checked={form.isAvailable}
+                  onCheckedChange={(checked) => setForm((prev) => ({ ...prev, isAvailable: Boolean(checked) }))}
+                />
+              </div>
+              <div className="rounded-lg border bg-muted/30 p-3">
+                <p className="text-sm font-medium">Item image (optional)</p>
+                <p className="mt-1 text-xs text-muted-foreground">JPEG, PNG or WEBP up to 2MB.</p>
+                <div className="mt-3 flex items-center gap-3">
+                  <Button type="button" variant="secondary" size="sm" onClick={() => uploadInputRef.current?.click()}>
+                    <ImagePlus className="mr-1 h-4 w-4" />
+                    Choose image
+                  </Button>
+                  <input
+                    ref={uploadInputRef}
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp"
+                    className="hidden"
+                    onChange={(event) => setCreateImageFromFile(event.target.files?.[0] ?? null)}
+                  />
+                  {createImagePreview ? (
+                    <img src={createImagePreview} alt="Item preview" className="h-14 w-14 rounded-lg border object-cover" />
+                  ) : (
+                    <div className="flex h-14 w-14 items-center justify-center rounded-lg border border-dashed text-xs text-muted-foreground">
+                      No image
+                    </div>
+                  )}
+                </div>
+                {createUploadProgress !== null ? (
+                  <p className="mt-2 text-xs font-medium text-primary">Uploading image... {createUploadProgress}%</p>
+                ) : null}
+              </div>
+              <DialogFooter>
+                <Button type="button" variant="secondary" onClick={() => setCreateDialogOpen(false)}>
+                  Cancel
+                </Button>
+                <Button type="submit" loading={creatingItem}>
+                  {creatingItem ? "Creating..." : "Create Item"}
+                </Button>
+              </DialogFooter>
+            </form>
+          </DialogContent>
+        </Dialog>
+      }
+    >
+      <div className="mb-4 grid gap-3 sm:grid-cols-2">
         <SelectField label="Filter by category" value={categoryFilter} onChange={(event) => setCategoryFilter(event.target.value)}>
-          <option value="all">All</option>
+          <option value="all">All categories</option>
           {categories.map((category) => (
             <option key={category.id} value={category.id}>
               {category.name}
             </option>
           ))}
         </SelectField>
+        <div className="hidden sm:block" />
       </div>
 
-      {error ? <p className="mt-3 text-sm font-medium text-danger-700">{error}</p> : null}
+      {error ? <p className="mb-3 text-sm font-medium text-destructive">{error}</p> : null}
 
-      <div className="mt-4 space-y-2">
-        {visibleItems.length === 0 ? (
-          <EmptyState title="No items yet" description="Add your first menu item to start receiving orders." />
-        ) : null}
-        {visibleItems.map((item) => {
-          const isUploading = uploadingItemIds.has(item.id);
-          const progress = uploadProgressByItem[item.id];
-          return (
-            <div key={item.id} className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
-              {editingId === item.id ? (
-                <div className="grid gap-2 md:grid-cols-2">
-                  <SelectField
-                    label="Category"
-                    value={editingForm.categoryId}
-                    onChange={(event) => setEditingForm((prev) => ({ ...prev, categoryId: event.target.value }))}
-                  >
-                    {categories.map((category) => (
-                      <option key={category.id} value={category.id}>
-                        {category.name}
-                      </option>
-                    ))}
-                  </SelectField>
-                  <InputField
-                    label="Item name"
-                    value={editingForm.name}
-                    onChange={(event) => setEditingForm((prev) => ({ ...prev, name: event.target.value }))}
-                  />
-                  <InputField
-                    label="Description"
-                    value={editingForm.description}
-                    onChange={(event) => setEditingForm((prev) => ({ ...prev, description: event.target.value }))}
-                  />
-                  <InputField
-                    type="number"
-                    label="Price (NGN)"
-                    step="0.01"
-                    min="0"
-                    value={editingForm.price}
-                    onChange={(event) => setEditingForm((prev) => ({ ...prev, price: event.target.value }))}
-                  />
-                  <label className="inline-flex items-center gap-2 text-sm font-medium text-slate-700 md:col-span-2">
-                    <input
-                      type="checkbox"
-                      className="h-4 w-4 rounded border-slate-300 text-brand-500 focus:ring-brand-200"
-                      checked={editingForm.isAvailable}
-                      onChange={(event) => setEditingForm((prev) => ({ ...prev, isAvailable: event.target.checked }))}
-                    />
-                    Available
-                  </label>
-
-                  <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 md:col-span-2">
-                    <p className="text-sm font-medium text-slate-700">Update image (optional)</p>
-                    <div className="mt-2 flex flex-wrap items-center gap-3">
-                      <label className="inline-flex cursor-pointer items-center rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100">
-                        Choose image
-                        <input
-                          type="file"
-                          accept="image/jpeg,image/png,image/webp"
-                          className="hidden"
-                          onChange={(event) => {
-                            const file = event.target.files?.[0] ?? null;
-                            if (!file) {
-                              return;
-                            }
-                            const validationError = validateImageFile(file);
-                            if (validationError) {
-                              setError(validationError);
-                              showToast(validationError, "error");
-                              return;
-                            }
-
-                            setEditingImageFile(file);
-                            if (editingImagePreview) {
-                              URL.revokeObjectURL(editingImagePreview);
-                            }
-                            setEditingImagePreview(URL.createObjectURL(file));
-                          }}
-                        />
-                      </label>
-                      {editingImagePreview ? (
-                        <img src={editingImagePreview} alt="Editing preview" className="h-14 w-14 rounded-lg object-cover" />
-                      ) : item.imageUrl ? (
-                        <img src={item.imageUrl} alt={item.name} className="h-14 w-14 rounded-lg object-cover" />
-                      ) : (
-                        <div className="flex h-14 w-14 items-center justify-center rounded-lg border border-dashed border-slate-300 text-xs text-slate-400">
-                          No image
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="flex gap-2 md:col-span-2">
-                    <Button type="button" size="sm" onClick={() => void saveEdit(item.id)}>
-                      Save
-                    </Button>
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="secondary"
-                      onClick={() => {
-                        setEditingId(null);
-                        setEditingImageFile(null);
-                        if (editingImagePreview) {
-                          URL.revokeObjectURL(editingImagePreview);
-                          setEditingImagePreview(null);
-                        }
-                      }}
-                    >
-                      Cancel
-                    </Button>
-                  </div>
-                </div>
-              ) : (
-                <div className="flex flex-wrap items-center justify-between gap-3">
+      {visibleItems.length === 0 ? (
+        <EmptyState title="No items yet" description="Create your first menu item to start receiving orders." />
+      ) : (
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Item</TableHead>
+              <TableHead>Price</TableHead>
+              <TableHead>Status</TableHead>
+              <TableHead className="w-[68px]" />
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {visibleItems.map((item) => (
+              <TableRow key={item.id}>
+                <TableCell>
                   <div className="flex items-center gap-3">
                     {item.imageUrl ? (
-                      <img
-                        src={item.imageUrl}
-                        alt={item.name}
-                        className="h-14 w-14 rounded-lg border border-slate-200 object-cover"
-                      />
+                      <img src={item.imageUrl} alt={item.name} className="h-12 w-12 rounded-lg border object-cover" />
                     ) : (
-                      <div className="flex h-14 w-14 items-center justify-center rounded-lg border border-dashed border-slate-300 text-xs text-slate-400">
+                      <div className="flex h-12 w-12 items-center justify-center rounded-lg border border-dashed text-[10px] text-muted-foreground">
                         No image
                       </div>
                     )}
                     <div>
-                      <p className="font-semibold text-slate-900">{item.name}</p>
-                      <p className="text-sm text-slate-500">
-                        NGN {Number(item.price).toLocaleString()} | {item.isAvailable ? "Available" : "Unavailable"}
-                      </p>
-                      {progress !== undefined ? (
-                        <p className="text-xs font-medium text-brand-700">Uploading image... {progress}%</p>
-                      ) : null}
+                      <p className="font-medium">{item.name}</p>
+                      <p className="text-xs text-muted-foreground">{item.description || "No description"}</p>
                     </div>
                   </div>
-                  <div className="flex flex-wrap gap-2">
-                    <label className="inline-flex cursor-pointer items-center rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50">
-                      Upload image
-                      <input
-                        type="file"
-                        accept="image/jpeg,image/png,image/webp"
-                        className="hidden"
-                        disabled={isUploading}
-                        onChange={(event) => {
-                          const file = event.target.files?.[0] ?? null;
-                          void handleItemImageSelection(item.id, file);
-                          event.currentTarget.value = "";
-                        }}
-                      />
-                    </label>
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="secondary"
-                      onClick={() => void removeImage(item.id)}
-                      disabled={!item.imageUrl || isUploading}
-                    >
-                      Remove image
-                    </Button>
-                    <Button type="button" size="sm" variant="secondary" onClick={() => void toggleAvailability(item)}>
-                      {item.isAvailable ? "Set Unavailable" : "Set Available"}
-                    </Button>
-                    <Button type="button" size="sm" variant="secondary" onClick={() => startEdit(item)}>
-                      Edit
-                    </Button>
-                    <Button type="button" size="sm" variant="danger" onClick={() => void deleteItem(item.id)}>
-                      Delete
-                    </Button>
+                </TableCell>
+                <TableCell>NGN {Number(item.price).toLocaleString()}</TableCell>
+                <TableCell>
+                  <div className="flex items-center gap-2">
+                    <Switch
+                      checked={item.isAvailable}
+                      disabled={togglingIds.has(item.id)}
+                      onCheckedChange={() => void toggleAvailability(item)}
+                    />
+                    <Badge variant={item.isAvailable ? "success" : "warning"}>{item.isAvailable ? "Available" : "Unavailable"}</Badge>
                   </div>
-                </div>
-              )}
+                </TableCell>
+                <TableCell className="text-right">
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="sm">
+                        <MoreHorizontal className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={() => startEdit(item)}>Edit</DropdownMenuItem>
+                      <DropdownMenuItem
+                        onClick={() => void removeImage(item.id)}
+                        disabled={!item.imageUrl || removingImageIds.has(item.id)}
+                      >
+                        Remove image
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        className="text-destructive focus:text-destructive"
+                        disabled={deletingIds.has(item.id)}
+                        onClick={() => void deleteItem(item.id)}
+                      >
+                        <Trash2 className="mr-2 h-4 w-4" />
+                        Delete
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      )}
+
+      <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Item</DialogTitle>
+            <DialogDescription>Update item details, availability and image.</DialogDescription>
+          </DialogHeader>
+          <form onSubmit={saveEdit} className="space-y-4">
+            <SelectField
+              required
+              label="Category"
+              value={editingForm.categoryId}
+              onChange={(event) => setEditingForm((prev) => ({ ...prev, categoryId: event.target.value }))}
+            >
+              {categories.map((category) => (
+                <option key={category.id} value={category.id}>
+                  {category.name}
+                </option>
+              ))}
+            </SelectField>
+            <InputField
+              required
+              label="Item name"
+              value={editingForm.name}
+              onChange={(event) => setEditingForm((prev) => ({ ...prev, name: event.target.value }))}
+            />
+            <InputField
+              label="Description"
+              value={editingForm.description}
+              onChange={(event) => setEditingForm((prev) => ({ ...prev, description: event.target.value }))}
+            />
+            <InputField
+              required
+              label="Price (NGN)"
+              type="number"
+              step="0.01"
+              min="0"
+              value={editingForm.price}
+              onChange={(event) => setEditingForm((prev) => ({ ...prev, price: event.target.value }))}
+            />
+            <div className="flex items-center justify-between rounded-lg border px-3 py-2">
+              <span className="text-sm font-medium">Available</span>
+              <Switch
+                checked={editingForm.isAvailable}
+                onCheckedChange={(checked) => setEditingForm((prev) => ({ ...prev, isAvailable: Boolean(checked) }))}
+              />
             </div>
-          );
-        })}
-      </div>
+            <div className="rounded-lg border bg-muted/30 p-3">
+              <p className="text-sm font-medium">Replace image (optional)</p>
+              <div className="mt-3 flex items-center gap-3">
+                <label className="cursor-pointer">
+                  <Button type="button" variant="secondary" size="sm" asChild>
+                    <span>
+                      <ImagePlus className="mr-1 h-4 w-4" />
+                      Choose image
+                    </span>
+                  </Button>
+                  <input
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp"
+                    className="hidden"
+                    onChange={(event) => setEditImageFromFile(event.target.files?.[0] ?? null)}
+                  />
+                </label>
+                {editingImagePreview ? (
+                  <img src={editingImagePreview} alt="Editing preview" className="h-14 w-14 rounded-lg border object-cover" />
+                ) : activeEditingItem?.imageUrl ? (
+                  <img src={activeEditingItem.imageUrl} alt={activeEditingItem.name} className="h-14 w-14 rounded-lg border object-cover" />
+                ) : (
+                  <div className="flex h-14 w-14 items-center justify-center rounded-lg border border-dashed text-xs text-muted-foreground">
+                    No image
+                  </div>
+                )}
+              </div>
+              {editUploadProgress !== null ? <p className="mt-2 text-xs text-primary">Uploading image... {editUploadProgress}%</p> : null}
+            </div>
+            <DialogFooter>
+              <Button type="button" variant="secondary" onClick={() => setEditDialogOpen(false)}>
+                Cancel
+              </Button>
+              <Button type="submit" loading={savingEdit}>
+                Save Changes
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 };
+

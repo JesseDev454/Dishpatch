@@ -7,6 +7,7 @@ import { Button } from "../components/ui/Button";
 import { Card } from "../components/ui/Card";
 import { EmptyState } from "../components/ui/EmptyState";
 import { PageLoader } from "../components/ui/PageLoader";
+import { Tabs, TabsList, TabsTrigger } from "../components/ui/Tabs";
 import { useAuth } from "../context/AuthContext";
 import { useToast } from "../context/ToastContext";
 import { getApiErrorMessage, getApiStatus } from "../lib/errors";
@@ -79,18 +80,12 @@ export const DashboardPage = () => {
       subtitle="Manage categories and items for your restaurant menu."
       actions={
         <>
-          <Link
-            to="/dashboard/orders"
-            className="focus-ring inline-flex h-10 items-center justify-center rounded-xl border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
-          >
-            Open Live Orders
-          </Link>
-          <Link
-            to="/dashboard/analytics"
-            className="focus-ring inline-flex h-10 items-center justify-center rounded-xl border border-brand-300 bg-brand-50 px-4 text-sm font-semibold text-brand-700 transition hover:bg-brand-100"
-          >
-            View Analytics
-          </Link>
+          <Button variant="secondary" asChild>
+            <Link to="/dashboard/orders">Open Live Orders</Link>
+          </Button>
+          <Button asChild>
+            <Link to="/dashboard/analytics">View Analytics</Link>
+          </Button>
         </>
       }
     >
@@ -109,22 +104,13 @@ export const DashboardPage = () => {
         </div>
       ) : null}
 
-      <div className="mt-5 inline-flex rounded-xl border border-slate-200 bg-white p-1 shadow-sm">
-        <Button type="button" variant={view === "all" ? "primary" : "ghost"} size="sm" onClick={() => setView("all")}>
-          All
-        </Button>
-        <Button
-          type="button"
-          variant={view === "categories" ? "primary" : "ghost"}
-          size="sm"
-          onClick={() => setView("categories")}
-        >
-          Categories
-        </Button>
-        <Button type="button" variant={view === "items" ? "primary" : "ghost"} size="sm" onClick={() => setView("items")}>
-          Items
-        </Button>
-      </div>
+      <Tabs value={view} className="mt-5" onValueChange={(value) => setView(value as typeof view)}>
+        <TabsList>
+          <TabsTrigger value="all">All</TabsTrigger>
+          <TabsTrigger value="categories">Categories</TabsTrigger>
+          <TabsTrigger value="items">Items</TabsTrigger>
+        </TabsList>
+      </Tabs>
 
       <div className="mt-5 grid gap-4 xl:grid-cols-2">
         {(view === "all" || view === "categories") && (

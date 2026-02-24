@@ -1,5 +1,7 @@
 import { InputHTMLAttributes, ReactNode, forwardRef } from "react";
-import { cn } from "../../lib/cn";
+import { cn } from "@/lib/utils";
+import { Input } from "./Input";
+import { Label } from "./Label";
 
 type InputFieldProps = Omit<InputHTMLAttributes<HTMLInputElement>, "size"> & {
   label?: string;
@@ -12,22 +14,23 @@ export const InputField = forwardRef<HTMLInputElement, InputFieldProps>(
   ({ className, label, helperText, error, id, rightSlot, ...props }, ref) => {
     const inputId = id ?? props.name;
     return (
-      <label className="block space-y-1.5">
-        {label ? <span className="text-sm font-medium text-slate-700">{label}</span> : null}
+      <div className="grid gap-1.5">
+        {label ? <Label htmlFor={inputId}>{label}</Label> : null}
         <span className="relative block">
-          <input
+          <Input
             id={inputId}
             ref={ref}
-            className={cn("input-base focus-ring", error ? "border-danger-300 focus:ring-danger-100" : "", className)}
+            className={cn(error ? "border-destructive focus-visible:ring-destructive/25" : "", className)}
             {...props}
           />
           {rightSlot ? <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center">{rightSlot}</span> : null}
         </span>
-        {error ? <span className="text-xs font-medium text-danger-700">{error}</span> : null}
-        {!error && helperText ? <span className="text-xs text-slate-500">{helperText}</span> : null}
-      </label>
+        {error ? <span className="text-xs font-medium text-destructive">{error}</span> : null}
+        {!error && helperText ? <span className="text-xs text-muted-foreground">{helperText}</span> : null}
+      </div>
     );
   }
 );
 
 InputField.displayName = "InputField";
+

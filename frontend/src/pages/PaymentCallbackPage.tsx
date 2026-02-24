@@ -100,12 +100,9 @@ export const PaymentCallbackPage = () => {
         <Card title="Payment not confirmed" subtitle={errorMessage} className="w-full max-w-xl">
           <div className="flex flex-wrap gap-2">
             <Button onClick={() => void verifyPayment()}>Retry</Button>
-            <Link
-              to={restaurantSlug ? `/r/${restaurantSlug}` : "/"}
-              className="focus-ring inline-flex h-10 items-center justify-center rounded-xl border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
-            >
-              Back to restaurant
-            </Link>
+            <Button variant="secondary" asChild>
+              <Link to={restaurantSlug ? `/r/${restaurantSlug}` : "/"}>Back to restaurant</Link>
+            </Button>
           </div>
         </Card>
       ) : null}

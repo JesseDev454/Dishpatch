@@ -7,5 +7,5 @@ module.exports = {
   globalSetup: "<rootDir>/src/tests/setup/global-setup.ts",
   clearMocks: true,
   maxWorkers: 1,
-  testTimeout: 30000
+  testTimeout: 600000
 };

@@ -13,6 +13,9 @@ const PaymentCallbackPage = lazy(() =>
 const PublicOrderPage = lazy(() => import("./pages/PublicOrderPage").then((mod) => ({ default: mod.PublicOrderPage })));
 const LiveOrdersPage = lazy(() => import("./pages/LiveOrdersPage").then((mod) => ({ default: mod.LiveOrdersPage })));
 const ReceiptPage = lazy(() => import("./pages/ReceiptPage").then((mod) => ({ default: mod.ReceiptPage })));
+const DashboardAnalyticsPage = lazy(() =>
+  import("./pages/DashboardAnalyticsPage").then((mod) => ({ default: mod.DashboardAnalyticsPage }))
+);
 
 function HomeRedirect() {
   const { user, loading } = useAuth();
@@ -47,6 +50,14 @@ export default function App() {
           element={
             <ProtectedRoute>
               <LiveOrdersPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/dashboard/analytics"
+          element={
+            <ProtectedRoute>
+              <DashboardAnalyticsPage />
             </ProtectedRoute>
           }
         />

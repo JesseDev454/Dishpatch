@@ -15,7 +15,8 @@ type AdminShellProps = {
 
 const navItems = [
   { to: "/dashboard", label: "Categories & Items" },
-  { to: "/dashboard/orders", label: "Live Orders" }
+  { to: "/dashboard/orders", label: "Live Orders" },
+  { to: "/dashboard/analytics", label: "Analytics" }
 ];
 
 export const AdminShell = ({ user, onLogout, title, subtitle, actions, children }: AdminShellProps) => {

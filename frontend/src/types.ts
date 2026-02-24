@@ -70,3 +70,46 @@ export interface OrderSummary {
   updatedAt: string;
   items: OrderItemSnapshot[];
 }
+
+export type AnalyticsRange = "7d" | "30d";
+
+export interface AnalyticsOverviewKpis {
+  ordersToday: number;
+  revenueToday: string;
+  ordersThisWeek: number;
+  revenueThisWeek: string;
+  totalOrders: number;
+  totalRevenue: string;
+  avgOrderValue: string;
+  paidOrders: number;
+  pendingPaymentOrders: number;
+  expiredOrders: number;
+}
+
+export interface AnalyticsOverviewResponse {
+  range: AnalyticsRange;
+  kpis: AnalyticsOverviewKpis;
+}
+
+export interface AnalyticsTimeseriesPoint {
+  date: string;
+  orders: number;
+  revenue: string;
+}
+
+export interface AnalyticsTimeseriesResponse {
+  range: AnalyticsRange;
+  series: AnalyticsTimeseriesPoint[];
+}
+
+export interface AnalyticsTopItem {
+  itemId: number;
+  name: string;
+  quantity: number;
+  revenue: string;
+}
+
+export interface AnalyticsTopItemsResponse {
+  range: AnalyticsRange;
+  items: AnalyticsTopItem[];
+}

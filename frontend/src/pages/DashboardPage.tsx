@@ -78,12 +78,20 @@ export const DashboardPage = () => {
       title="Menu Dashboard"
       subtitle="Manage categories and items for your restaurant menu."
       actions={
-        <Link
-          to="/dashboard/orders"
-          className="focus-ring inline-flex h-10 items-center justify-center rounded-xl border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
-        >
-          Open Live Orders
-        </Link>
+        <>
+          <Link
+            to="/dashboard/orders"
+            className="focus-ring inline-flex h-10 items-center justify-center rounded-xl border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+          >
+            Open Live Orders
+          </Link>
+          <Link
+            to="/dashboard/analytics"
+            className="focus-ring inline-flex h-10 items-center justify-center rounded-xl border border-brand-300 bg-brand-50 px-4 text-sm font-semibold text-brand-700 transition hover:bg-brand-100"
+          >
+            View Analytics
+          </Link>
+        </>
       }
     >
       <div className="grid gap-4 md:grid-cols-2">

@@ -14,6 +14,7 @@ import { AddPaymentsSprint31708900000000 } from "../migrations/1708900000000-Add
 import { AddExpiredOrderStatus1709000000000 } from "../migrations/1709000000000-AddExpiredOrderStatus";
 import { AddPaymentEmailMetadata1709100000000 } from "../migrations/1709100000000-AddPaymentEmailMetadata";
 import { AddItemImageUrl1709200000000 } from "../migrations/1709200000000-AddItemImageUrl";
+import { AddAnalyticsOrderIndexes1709300000000 } from "../migrations/1709300000000-AddAnalyticsOrderIndexes";
 
 const connectionOptions = env.db.databaseUrl
   ? {
@@ -40,7 +41,8 @@ export const AppDataSource = new DataSource({
     AddPaymentsSprint31708900000000,
     AddExpiredOrderStatus1709000000000,
     AddPaymentEmailMetadata1709100000000,
-    AddItemImageUrl1709200000000
+    AddItemImageUrl1709200000000,
+    AddAnalyticsOrderIndexes1709300000000
   ],
   synchronize: false,
   logging: false

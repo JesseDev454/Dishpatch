@@ -13,6 +13,7 @@ Current implementation delivers:
 - Transactional email receipts and paid-order notifications via Resend
 - Automatic pending-order expiry (30 minutes default) with realtime `order:updated` events
 - Live Orders realtime dashboard via Socket.IO
+- Analytics dashboard (overview, timeseries, top items) with tenant-safe aggregation
 - Clear inline errors and success/error toast alerts in UI
 
 ## Tech Stack
@@ -173,6 +174,38 @@ Set in `backend/.env`:
 5. Click `Accept` -> `Start Prep` -> `Mark Ready` -> `Complete` and confirm immediate UI updates.
 6. Open a second admin browser/tab for the same restaurant and confirm updates broadcast there instantly.
 7. Disconnect backend briefly and confirm `Realtime disconnected` badge appears; use `Refresh` as fallback.
+
+## Analytics (Sprint 6)
+### Protected Endpoints
+- `GET /analytics/overview?range=7d|30d`
+- `GET /analytics/timeseries?range=7d|30d`
+- `GET /analytics/top-items?range=7d|30d&limit=5`
+
+All analytics endpoints:
+- Require admin JWT (`Authorization: Bearer <token>`)
+- Are strictly tenant-scoped using authenticated `restaurantId`
+- Never return cross-tenant data
+
+### Revenue Calculation Rule
+Revenue metrics include only orders with status in:
+- `PAID`
+- `ACCEPTED`
+- `PREPARING`
+- `READY`
+- `COMPLETED`
+
+Revenue excludes:
+- `PENDING_PAYMENT`
+- `EXPIRED`
+- `CANCELLED`
+- `FAILED_PAYMENT`
+
+### Manual Analytics QA
+1. Login to dashboard and open `Analytics` from sidebar.
+2. Switch range between `7 Days` and `30 Days` and confirm KPI + chart refresh.
+3. Create orders with paid and non-paid statuses, then confirm revenue only tracks revenue statuses above.
+4. Confirm top items change based on paid/completed orders only.
+5. Verify a second restaurant account cannot see the first restaurant's analytics data.
 
 ## Backend Setup
 1. Go to backend:
@@ -351,6 +384,11 @@ Frontend routes (`/payment/callback`, `/receipt/:reference`, etc.) are handled b
 ### Orders (protected)
 - `GET /orders?status=PAID,ACCEPTED&limit=50&page=1`
 - `PATCH /orders/:id/status`
+
+### Analytics (protected)
+- `GET /analytics/overview?range=7d|30d`
+- `GET /analytics/timeseries?range=7d|30d`
+- `GET /analytics/top-items?range=7d|30d&limit=5`
 
 ### Public Ordering + Payments
 - `GET /public/restaurants/:slug`

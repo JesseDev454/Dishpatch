@@ -19,7 +19,6 @@ import { EmptyState } from "./ui/EmptyState";
 import { InputField } from "./ui/InputField";
 import { SelectField } from "./ui/SelectField";
 import { Switch } from "./ui/Switch";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "./ui/Table";
 
 type ItemManagerProps = {
   items: Item[];
@@ -437,74 +436,72 @@ export const ItemManager = ({ items, categories, onChange }: ItemManagerProps) =
       {visibleItems.length === 0 ? (
         <EmptyState title="No items yet" description="Create your first menu item to start receiving orders." />
       ) : (
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Item</TableHead>
-              <TableHead>Price</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead className="w-[68px]" />
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {visibleItems.map((item) => (
-              <TableRow key={item.id}>
-                <TableCell>
-                  <div className="flex items-center gap-3">
-                    {item.imageUrl ? (
-                      <img src={item.imageUrl} alt={item.name} className="h-12 w-12 rounded-lg border object-cover" />
-                    ) : (
-                      <div className="flex h-12 w-12 items-center justify-center rounded-lg border border-dashed text-[10px] text-muted-foreground">
-                        No image
-                      </div>
-                    )}
-                    <div>
-                      <p className="font-medium">{item.name}</p>
-                      <p className="text-xs text-muted-foreground">{item.description || "No description"}</p>
+        <div className="space-y-3">
+          {visibleItems.map((item) => (
+            <article key={item.id} className="rounded-xl border bg-card p-4">
+              <div className="flex items-start gap-3">
+                {item.imageUrl ? (
+                  <img src={item.imageUrl} alt={item.name} className="h-12 w-12 rounded-lg border object-cover" />
+                ) : (
+                  <div className="flex h-12 w-12 items-center justify-center rounded-lg border border-dashed text-[10px] text-muted-foreground">
+                    No image
+                  </div>
+                )}
+
+                <div className="min-w-0 flex-1 space-y-2">
+                  <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between sm:gap-3">
+                    <h4 className="min-w-0 break-words text-sm font-semibold leading-tight text-foreground">{item.name}</h4>
+                    <p className="shrink-0 whitespace-nowrap text-sm font-semibold tabular-nums text-primary">
+                      NGN {Number(item.price).toLocaleString()}
+                    </p>
+                  </div>
+
+                  <p className="break-words text-sm leading-snug text-muted-foreground [display:-webkit-box] [-webkit-box-orient:vertical] [-webkit-line-clamp:2] overflow-hidden">
+                    {item.description || "No description"}
+                  </p>
+
+                  <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
+                    <div className="flex items-center gap-2">
+                      <Switch
+                        checked={item.isAvailable}
+                        disabled={togglingIds.has(item.id)}
+                        onCheckedChange={() => void toggleAvailability(item)}
+                      />
+                      <Badge variant={item.isAvailable ? "success" : "warning"}>
+                        {item.isAvailable ? "Available" : "Unavailable"}
+                      </Badge>
                     </div>
+
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="sm">
+                          <MoreHorizontal className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={() => startEdit(item)}>Edit</DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={() => void removeImage(item.id)}
+                          disabled={!item.imageUrl || removingImageIds.has(item.id)}
+                        >
+                          Remove image
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          className="text-destructive focus:text-destructive"
+                          disabled={deletingIds.has(item.id)}
+                          onClick={() => void deleteItem(item.id)}
+                        >
+                          <Trash2 className="mr-2 h-4 w-4" />
+                          Delete
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </div>
-                </TableCell>
-                <TableCell>NGN {Number(item.price).toLocaleString()}</TableCell>
-                <TableCell>
-                  <div className="flex items-center gap-2">
-                    <Switch
-                      checked={item.isAvailable}
-                      disabled={togglingIds.has(item.id)}
-                      onCheckedChange={() => void toggleAvailability(item)}
-                    />
-                    <Badge variant={item.isAvailable ? "success" : "warning"}>{item.isAvailable ? "Available" : "Unavailable"}</Badge>
-                  </div>
-                </TableCell>
-                <TableCell className="text-right">
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="sm">
-                        <MoreHorizontal className="h-4 w-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={() => startEdit(item)}>Edit</DropdownMenuItem>
-                      <DropdownMenuItem
-                        onClick={() => void removeImage(item.id)}
-                        disabled={!item.imageUrl || removingImageIds.has(item.id)}
-                      >
-                        Remove image
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        className="text-destructive focus:text-destructive"
-                        disabled={deletingIds.has(item.id)}
-                        onClick={() => void deleteItem(item.id)}
-                      >
-                        <Trash2 className="mr-2 h-4 w-4" />
-                        Delete
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+                </div>
+              </div>
+            </article>
+          ))}
+        </div>
       )}
 
       <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
@@ -596,4 +593,3 @@ export const ItemManager = ({ items, categories, onChange }: ItemManagerProps) =
     </Card>
   );
 };
-

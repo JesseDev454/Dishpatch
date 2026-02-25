@@ -1,9 +1,9 @@
 import { Suspense, lazy, useEffect } from "react";
 import { Navigate, Route, Routes, useLocation } from "react-router-dom";
-import { useAuth } from "./context/AuthContext";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { PageLoader } from "./components/ui/PageLoader";
 
+const LandingPage = lazy(() => import("./pages/LandingPage").then((mod) => ({ default: mod.LandingPage })));
 const LoginPage = lazy(() => import("./pages/LoginPage").then((mod) => ({ default: mod.LoginPage })));
 const RegisterPage = lazy(() => import("./pages/RegisterPage").then((mod) => ({ default: mod.RegisterPage })));
 const DashboardPage = lazy(() => import("./pages/DashboardPage").then((mod) => ({ default: mod.DashboardPage })));
@@ -16,14 +16,6 @@ const ReceiptPage = lazy(() => import("./pages/ReceiptPage").then((mod) => ({ de
 const DashboardAnalyticsPage = lazy(() =>
   import("./pages/DashboardAnalyticsPage").then((mod) => ({ default: mod.DashboardAnalyticsPage }))
 );
-
-function HomeRedirect() {
-  const { user, loading } = useAuth();
-  if (loading) {
-    return <PageLoader message="Loading Dishpatch..." />;
-  }
-  return <Navigate to={user ? "/dashboard" : "/login"} replace />;
-}
 
 export default function App() {
   const location = useLocation();
@@ -43,7 +35,7 @@ export default function App() {
     >
       <div key={location.pathname} className="page-enter">
         <Routes location={location}>
-          <Route path="/" element={<HomeRedirect />} />
+          <Route path="/" element={<LandingPage />} />
           <Route path="/register" element={<RegisterPage />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/r/:slug" element={<PublicOrderPage />} />

@@ -99,7 +99,9 @@ module.exports = {
       animation: {
         "pulse-soft": "pulse-soft 1.5s ease-in-out infinite",
         "fade-in": "fade-in 180ms ease-out",
-        "slide-up": "slide-up 220ms ease-out"
+        "slide-up": "slide-up 220ms ease-out",
+        "accordion-down": "accordion-down 220ms ease-out",
+        "accordion-up": "accordion-up 220ms ease-out"
       },
       keyframes: {
         "pulse-soft": {
@@ -113,6 +115,14 @@ module.exports = {
         "slide-up": {
           "0%": { transform: "translateY(12px)", opacity: "0" },
           "100%": { transform: "translateY(0)", opacity: "1" }
+        },
+        "accordion-down": {
+          from: { height: "0" },
+          to: { height: "var(--radix-accordion-content-height)" }
+        },
+        "accordion-up": {
+          from: { height: "var(--radix-accordion-content-height)" },
+          to: { height: "0" }
         }
       }
     }

@@ -93,6 +93,8 @@ const faqs = [
   }
 ];
 
+const heroTypeWords = ["delightful", "real-time", "Paystack-ready", "mobile-first"] as const;
+
 const useAnimatedNumber = (value: number, durationMs = 550): number => {
   const reducedMotion = useReducedMotion() ?? false;
   const [display, setDisplay] = useState(value);
@@ -135,8 +137,9 @@ export const LandingPage = () => {
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [demoSlug, setDemoSlug] = useState<string | null>(null);
   const [demoChecked, setDemoChecked] = useState(false);
-  const heroHeadline = "Online ordering for restaurants\nfast, secure, and\ndelightful";
-  const [heroTypedLength, setHeroTypedLength] = useState(reducedMotion ? heroHeadline.length : 0);
+  const [heroWordIndex, setHeroWordIndex] = useState(0);
+  const [heroWordTypedLength, setHeroWordTypedLength] = useState(reducedMotion ? heroTypeWords[0].length : 0);
+  const [heroWordDeleting, setHeroWordDeleting] = useState(false);
   const [heroToastVisible, setHeroToastVisible] = useState(true);
   const [simCount, setSimCount] = useState(0);
   const [simSubtotal, setSimSubtotal] = useState(0);
@@ -147,9 +150,8 @@ export const LandingPage = () => {
   const rotateXSmooth = useSpring(rotateX, { stiffness: 80, damping: 18 });
   const rotateYSmooth = useSpring(rotateY, { stiffness: 80, damping: 18 });
 
-  const typedHero = heroHeadline.slice(0, heroTypedLength);
-  const [heroLineOne = "", heroLineTwo = "", heroLineThree = ""] = typedHero.split("\n");
-  const heroTypingActive = heroTypedLength < heroHeadline.length;
+  const heroActiveWord = heroTypeWords[heroWordIndex] ?? heroTypeWords[0];
+  const heroTypedWord = reducedMotion ? heroTypeWords[0] : heroActiveWord.slice(0, heroWordTypedLength);
 
   const animatedOrderCount = useAnimatedNumber(simCount);
   const animatedSubtotal = useAnimatedNumber(simSubtotal);
@@ -177,22 +179,33 @@ export const LandingPage = () => {
 
   useEffect(() => {
     if (reducedMotion) {
-      setHeroTypedLength(heroHeadline.length);
+      setHeroWordIndex(0);
+      setHeroWordDeleting(false);
+      setHeroWordTypedLength(heroTypeWords[0].length);
       return;
     }
 
-    setHeroTypedLength(0);
-    let currentIndex = 0;
-    const interval = window.setInterval(() => {
-      currentIndex += 1;
-      setHeroTypedLength(Math.min(currentIndex, heroHeadline.length));
-      if (currentIndex >= heroHeadline.length) {
-        window.clearInterval(interval);
-      }
-    }, 38);
+    const isWordComplete = heroWordTypedLength === heroActiveWord.length;
+    const isWordCleared = heroWordTypedLength === 0;
 
-    return () => window.clearInterval(interval);
-  }, [heroHeadline, reducedMotion]);
+    const timeoutMs = heroWordDeleting ? 46 : isWordComplete ? 1150 : 78;
+    const timeout = window.setTimeout(() => {
+      if (!heroWordDeleting && isWordComplete) {
+        setHeroWordDeleting(true);
+        return;
+      }
+
+      if (heroWordDeleting && isWordCleared) {
+        setHeroWordDeleting(false);
+        setHeroWordIndex((prev) => (prev + 1) % heroTypeWords.length);
+        return;
+      }
+
+      setHeroWordTypedLength((prev) => prev + (heroWordDeleting ? -1 : 1));
+    }, timeoutMs);
+
+    return () => window.clearTimeout(timeout);
+  }, [heroActiveWord, heroWordDeleting, heroWordTypedLength, reducedMotion]);
 
   useEffect(() => {
     if (reducedMotion) {
@@ -329,12 +342,12 @@ export const LandingPage = () => {
               Built for Nigerian restaurants
             </Badge>
             <h1 className="text-4xl font-black tracking-tight sm:text-5xl">
-              {heroLineOne}
-              <span className="block text-primary">{heroLineTwo}</span>
-              <span className="inline-flex min-h-[1.3em] items-center text-accent">
-                {heroLineThree}
-                {!reducedMotion && heroTypingActive ? (
-                  <span aria-hidden className="ml-1 inline-block h-[1em] w-[2px] animate-pulse rounded-sm bg-accent" />
+              Online ordering for restaurants
+              <span className="block text-primary">fast, secure, and</span>
+              <span className="inline-flex min-h-[1.3em] min-w-[14ch] items-center text-primary">
+                {heroTypedWord}
+                {!reducedMotion ? (
+                  <span aria-hidden className="ml-1 inline-block h-[1em] w-[2px] animate-pulse rounded-sm bg-primary" />
                 ) : null}
               </span>
             </h1>
@@ -665,10 +678,10 @@ const Reveal = ({
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 16, scale: 0.98 }}
+      initial={{ opacity: 0, y: 18, scale: 0.98 }}
       whileInView={{ opacity: 1, y: 0, scale: 1 }}
       viewport={{ once: true, amount: 0.25 }}
-      transition={{ duration: 0.52, ease: "easeOut", delay }}
+      transition={{ duration: 0.5, ease: "easeOut", delay }}
       className={className}
     >
       {children}
@@ -717,13 +730,13 @@ const RevealStagger = ({
         <motion.div
           key={(typeof child === "object" && child && "key" in child && child.key) ? String(child.key) : `reveal-${index}`}
           variants={{
-            hidden: { opacity: 0, y: 16, scale: 0.98 },
+            hidden: { opacity: 0, y: 18, scale: 0.98 },
             show: {
               opacity: 1,
               y: 0,
               scale: 1,
               transition: {
-                duration: 0.52,
+                duration: 0.5,
                 ease: "easeOut"
               }
             }

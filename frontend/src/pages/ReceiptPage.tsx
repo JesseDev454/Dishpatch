@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useParams } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 import { ReceiptText } from "lucide-react";
 import { Button } from "../components/ui/Button";
 import { Card } from "../components/ui/Card";
@@ -78,7 +78,12 @@ export const ReceiptPage = () => {
   return (
     <div className="min-h-screen bg-background px-4 py-6">
       <div className="no-print mx-auto mb-3 w-full max-w-3xl text-right">
-        <Button onClick={() => window.print()}>Print receipt</Button>
+        <div className="inline-flex gap-2">
+          <Button variant="secondary" asChild>
+            <Link to="/">Back to menu</Link>
+          </Button>
+          <Button onClick={() => window.print()}>Print receipt</Button>
+        </div>
       </div>
 
       <Card className="mx-auto w-full max-w-3xl print:rounded-none print:border-0 print:shadow-none">

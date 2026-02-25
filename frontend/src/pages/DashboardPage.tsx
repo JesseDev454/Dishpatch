@@ -38,6 +38,18 @@ export const DashboardPage = () => {
     await Promise.all([loadCategories(), loadItems()]);
   };
 
+  const retryLoad = async () => {
+    try {
+      await refreshAll();
+      setError(null);
+      showToast("Dashboard refreshed.", "success");
+    } catch (error: unknown) {
+      const message = getApiErrorMessage(error, "Failed to load dashboard data");
+      setError(message);
+      showToast(message, "error");
+    }
+  };
+
   useEffect(() => {
     const bootstrap = async () => {
       setLoading(true);
@@ -100,8 +112,11 @@ export const DashboardPage = () => {
       </div>
 
       {error ? (
-        <div className="mt-4 rounded-2xl border border-danger-100 bg-danger-50 px-4 py-3 text-sm font-medium text-danger-700">
-          {error}
+        <div className="mt-4 rounded-2xl border border-danger-500/40 bg-danger-500/15 px-4 py-3 text-sm font-medium text-danger-100">
+          <p>{error}</p>
+          <Button className="mt-3" size="sm" variant="secondary" onClick={() => void retryLoad()}>
+            Retry
+          </Button>
         </div>
       ) : null}
 

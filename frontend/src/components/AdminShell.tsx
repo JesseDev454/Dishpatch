@@ -45,8 +45,8 @@ const SidebarNav = ({ onNavigate }: { onNavigate?: () => void }) => {
             className={cn(
               "focus-ring flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium transition-all duration-200",
               active
-                ? "bg-primary text-primary-foreground shadow-sm"
-                : "text-muted-foreground hover:bg-primary/10 hover:text-foreground"
+                ? "bg-primary text-primary-foreground shadow-[0_8px_24px_rgba(59,146,52,0.24)]"
+                : "text-muted-foreground hover:bg-accent/15 hover:text-foreground"
             )}
           >
             <Icon className="h-4 w-4" />
@@ -64,7 +64,7 @@ export const AdminShell = ({ user, onLogout, title, subtitle, actions, children 
   return (
     <div className="min-h-screen bg-background">
       <div className="grid min-h-screen lg:grid-cols-[264px_minmax(0,1fr)]">
-        <aside className="hidden border-r bg-card/70 px-4 py-6 backdrop-blur lg:block">
+        <aside className="hidden border-r border-border/70 bg-card/80 px-4 py-6 backdrop-blur lg:block">
           <div className="mb-6 px-2">
             <p className="text-xl font-bold tracking-tight text-foreground">Dishpatch</p>
             <p className="mt-1 text-xs text-muted-foreground">{user?.restaurant.name}</p>
@@ -80,7 +80,7 @@ export const AdminShell = ({ user, onLogout, title, subtitle, actions, children 
         </aside>
 
         <div className="flex min-w-0 flex-col">
-          <header className="sticky top-0 z-30 border-b bg-background/90 backdrop-blur supports-[backdrop-filter]:bg-background/75">
+          <header className="sticky top-0 z-30 border-b border-border/70 bg-background/90 backdrop-blur supports-[backdrop-filter]:bg-background/75">
             <div className="flex items-center justify-between gap-3 px-4 py-3 sm:px-6">
               <div className="flex items-center gap-2">
                 <Sheet open={mobileNavOpen} onOpenChange={setMobileNavOpen}>

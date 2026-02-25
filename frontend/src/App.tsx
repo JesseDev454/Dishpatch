@@ -1,4 +1,4 @@
-import { Suspense, lazy } from "react";
+import { Suspense, lazy, useEffect } from "react";
 import { Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { useAuth } from "./context/AuthContext";
 import { ProtectedRoute } from "./components/ProtectedRoute";
@@ -27,6 +27,15 @@ function HomeRedirect() {
 
 export default function App() {
   const location = useLocation();
+  const themeClass =
+    location.pathname.startsWith("/dashboard") || location.pathname === "/login" || location.pathname === "/register"
+      ? "theme-admin"
+      : "theme-customer";
+
+  useEffect(() => {
+    document.body.classList.remove("theme-admin", "theme-customer");
+    document.body.classList.add(themeClass);
+  }, [themeClass]);
 
   return (
     <Suspense

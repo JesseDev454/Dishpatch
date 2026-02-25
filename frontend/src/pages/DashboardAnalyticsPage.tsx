@@ -64,15 +64,11 @@ const RevenueLineChart = ({ points }: RevenueLineChartProps) => {
           <div className="flex h-full items-center justify-center text-sm text-muted-foreground">No data</div>
         ) : (
           <svg viewBox="0 0 100 60" preserveAspectRatio="none" className="h-full w-full">
-            <polyline points="0,60 100,60" fill="none" stroke="#dbe7d8" strokeWidth="0.8" />
-            <polyline points="0,45 100,45" fill="none" stroke="#ebf3e9" strokeWidth="0.7" />
-            <polyline points="0,30 100,30" fill="none" stroke="#ebf3e9" strokeWidth="0.7" />
-            <polyline points="0,15 100,15" fill="none" stroke="#ebf3e9" strokeWidth="0.7" />
-            <polyline
-              points={`${linePoints} 100,60 0,60`}
-              fill="rgba(59, 146, 52, 0.16)"
-              stroke="none"
-            />
+            <polyline points="0,60 100,60" fill="none" stroke="#24303f" strokeWidth="0.8" />
+            <polyline points="0,45 100,45" fill="none" stroke="#1f2834" strokeWidth="0.7" />
+            <polyline points="0,30 100,30" fill="none" stroke="#1f2834" strokeWidth="0.7" />
+            <polyline points="0,15 100,15" fill="none" stroke="#1f2834" strokeWidth="0.7" />
+            <polyline points={`${linePoints} 100,60 0,60`} fill="rgba(59, 146, 52, 0.20)" stroke="none" />
             <polyline points={linePoints} fill="none" stroke="#3b9234" strokeWidth="1.6" strokeLinejoin="round" />
           </svg>
         )}
@@ -106,11 +102,12 @@ const KpiCard = ({
     {comparison ? (
       <span
         className={`mt-2 inline-flex items-center gap-1 rounded-full px-2 py-1 text-xs font-semibold ${
-          comparison.deltaPercent >= 0 ? "bg-success-50 text-success-700" : "bg-danger-50 text-danger-700"
+          comparison.deltaPercent >= 0 ? "bg-primary/15 text-brand-100" : "bg-danger-500/15 text-danger-100"
         }`}
       >
         {comparison.deltaPercent >= 0 ? <TrendingUp className="h-3.5 w-3.5" /> : <TrendingDown className="h-3.5 w-3.5" />}
-        {comparison.deltaPercent >= 0 ? "↑" : "↓"} {Math.abs(comparison.deltaPercent).toFixed(0)}% vs previous period
+        {comparison.deltaPercent >= 0 ? "+" : "-"}
+        {Math.abs(comparison.deltaPercent).toFixed(0)}% vs previous period
       </span>
     ) : null}
   </Card>
@@ -231,6 +228,20 @@ export const DashboardAnalyticsPage = () => {
     return { deltaPercent: ((current - previous) / previous) * 100 };
   }, [timeseries]);
 
+  const topInsight = useMemo(() => {
+    if (!topItems.length) {
+      return null;
+    }
+    return topItems[0];
+  }, [topItems]);
+
+  const bestDayInsight = useMemo(() => {
+    if (!timeseries.length) {
+      return null;
+    }
+    return [...timeseries].sort((a, b) => Number(b.revenue) - Number(a.revenue))[0];
+  }, [timeseries]);
+
   return (
     <AdminShell
       user={user}
@@ -242,20 +253,10 @@ export const DashboardAnalyticsPage = () => {
       actions={
         <div className="inline-flex items-center gap-2">
           <div className="inline-flex rounded-2xl border border-border bg-card p-1">
-            <Button
-              type="button"
-              variant={range === "7d" ? "primary" : "ghost"}
-              size="sm"
-              onClick={() => setRange("7d")}
-            >
+            <Button type="button" variant={range === "7d" ? "primary" : "ghost"} size="sm" onClick={() => setRange("7d")}>
               7 Days
             </Button>
-            <Button
-              type="button"
-              variant={range === "30d" ? "primary" : "ghost"}
-              size="sm"
-              onClick={() => setRange("30d")}
-            >
+            <Button type="button" variant={range === "30d" ? "primary" : "ghost"} size="sm" onClick={() => setRange("30d")}>
               30 Days
             </Button>
           </div>
@@ -269,7 +270,7 @@ export const DashboardAnalyticsPage = () => {
 
       {!loading && error ? (
         <Card>
-          <p className="text-sm font-medium text-danger-700">{error}</p>
+          <p className="text-sm font-medium text-danger-100">{error}</p>
           <div className="mt-3">
             <Button type="button" onClick={() => void loadAnalytics()}>
               Retry
@@ -296,12 +297,13 @@ export const DashboardAnalyticsPage = () => {
             </Card>
           </div>
 
+          <div className="flex flex-wrap gap-2">
+            {topInsight ? <Badge variant="info">Top item: {topInsight.name}</Badge> : null}
+            {bestDayInsight ? <Badge variant="success">Best day: {formatChartDate(bestDayInsight.date)}</Badge> : null}
+          </div>
+
           <div className="grid gap-4 xl:grid-cols-3">
-            <Card
-              className="xl:col-span-2"
-              title="Revenue Trend"
-              subtitle={`${periodLabel} (UTC)`}
-            >
+            <Card className="xl:col-span-2" title="Revenue Trend" subtitle={`${periodLabel} (UTC)`}>
               <RevenueLineChart points={timeseries} />
             </Card>
 
@@ -318,7 +320,7 @@ export const DashboardAnalyticsPage = () => {
                     <div key={item.itemId} className="rounded-2xl border border-border bg-muted/35 p-3">
                       <p className="text-sm font-semibold text-foreground">{item.name}</p>
                       <p className="mt-1 text-xs text-muted-foreground">Qty sold: {item.quantity}</p>
-                      <p className="mt-1 text-sm font-semibold text-brand-700">{formatNgn(item.revenue)}</p>
+                      <p className="mt-1 text-sm font-semibold text-primary">{formatNgn(item.revenue)}</p>
                     </div>
                   ))}
                 </div>
@@ -327,16 +329,13 @@ export const DashboardAnalyticsPage = () => {
           </div>
 
           {noRevenueData ? (
-            <EmptyState
-              title="No paid orders yet"
-              description="Create a test order and complete payment to see analytics."
-            />
+            <EmptyState title="No paid orders yet" description="Create a test order and complete payment to see analytics." />
           ) : null}
 
           {!hasPaidOrders ? (
             <div className="text-sm text-muted-foreground">
               Need sample data? Open your public page:{" "}
-              <Link to={`/r/${user?.restaurant.slug}`} className="font-semibold text-brand-700 hover:text-brand-800">
+              <Link to={`/r/${user?.restaurant.slug}`} className="font-semibold text-accent hover:text-accent/80">
                 /r/{user?.restaurant.slug}
               </Link>
             </div>

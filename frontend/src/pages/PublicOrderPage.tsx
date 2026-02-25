@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ShoppingCart } from "lucide-react";
+import { ShieldCheck, ShoppingCart } from "lucide-react";
 import { useParams } from "react-router-dom";
 import { useToast } from "../context/ToastContext";
 import { publicApi } from "../lib/api";
@@ -58,6 +58,7 @@ export const PublicOrderPage = () => {
 
   const [menu, setMenu] = useState<MenuResponse | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [activeCategoryId, setActiveCategoryId] = useState<number | null>(null);
   const [cartOpen, setCartOpen] = useState(false);
 
@@ -73,21 +74,25 @@ export const PublicOrderPage = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isInitializingPayment, setIsInitializingPayment] = useState(false);
 
-  useEffect(() => {
-    const fetchMenu = async () => {
-      try {
-        const response = await publicApi.get<MenuResponse>(`/public/restaurants/${slug}/menu`);
-        setMenu(response.data);
-        if (response.data.categories.length > 0) {
-          setActiveCategoryId(response.data.categories[0].id);
-        }
-      } catch (error: any) {
-        showToast(error?.response?.data?.message ?? "Failed to load menu", "error");
-      } finally {
-        setLoading(false);
+  const fetchMenu = async () => {
+    try {
+      setLoading(true);
+      setLoadError(null);
+      const response = await publicApi.get<MenuResponse>(`/public/restaurants/${slug}/menu`);
+      setMenu(response.data);
+      if (response.data.categories.length > 0) {
+        setActiveCategoryId(response.data.categories[0].id);
       }
-    };
+    } catch (error: any) {
+      const message = error?.response?.data?.message ?? "Failed to load menu";
+      setLoadError(message);
+      showToast(message, "error");
+    } finally {
+      setLoading(false);
+    }
+  };
 
+  useEffect(() => {
     if (slug) {
       void fetchMenu();
     }
@@ -450,7 +455,12 @@ export const PublicOrderPage = () => {
   if (!menu) {
     return (
       <div className="grid min-h-screen place-items-center px-4">
-        <EmptyState title="Restaurant menu not available" description="Check the restaurant URL and try again." />
+        <Card className="w-full max-w-md">
+          <EmptyState title="Restaurant menu not available" description={loadError ?? "Check the restaurant URL and try again."} />
+          <Button className="mt-4 w-full" onClick={() => void fetchMenu()}>
+            Retry
+          </Button>
+        </Card>
       </div>
     );
   }
@@ -461,6 +471,10 @@ export const PublicOrderPage = () => {
         <div className="mx-auto w-full max-w-7xl px-4 py-4">
           <h1 className="text-2xl font-extrabold tracking-tight text-foreground">{menu.restaurant.name}</h1>
           <p className="mt-1 text-sm text-muted-foreground">Order in minutes. Freshly prepared and ready to go.</p>
+          <p className="mt-2 inline-flex items-center gap-1 rounded-full bg-primary/15 px-3 py-1 text-xs font-semibold text-brand-100">
+            <ShieldCheck className="h-3.5 w-3.5" />
+            Secure checkout via Paystack
+          </p>
           <div className="no-scrollbar mt-3 flex gap-2 overflow-x-auto pb-1">
             {menu.categories.map((category) => (
               <Button
@@ -509,10 +523,10 @@ export const PublicOrderPage = () => {
                                 <img
                                   src={item.imageUrl}
                                   alt={item.name}
-                                  className="h-28 w-full object-cover transition-transform duration-300 group-hover:scale-105"
+                                  className="h-36 w-full object-cover transition-transform duration-300 group-hover:scale-105"
                                 />
                               ) : (
-                                <div className="h-28 bg-gradient-to-br from-brand-50 via-muted to-accentBlue-50" />
+                                <div className="h-36 bg-gradient-to-br from-brand-500/25 via-muted to-accentBlue-500/20" />
                               )}
                             </div>
                             <div className="space-y-2">
@@ -523,15 +537,21 @@ export const PublicOrderPage = () => {
                               <p className="text-sm text-muted-foreground">{item.description || "Freshly made and prepared to order."}</p>
                             </div>
                             <div className="mt-3 flex items-center justify-between gap-2">
-                              <div className="inline-flex items-center gap-2">
-                                <Button type="button" size="sm" variant="secondary" disabled={!item.isAvailable} onClick={() => updateCart(item, -1)}>
-                                  -
-                                </Button>
-                                <span className="w-5 text-center text-sm font-semibold text-foreground">{quantity}</span>
+                              {quantity > 0 ? (
+                                <div className="inline-flex items-center gap-2">
+                                  <Button type="button" size="sm" variant="secondary" disabled={!item.isAvailable} onClick={() => updateCart(item, -1)}>
+                                    -
+                                  </Button>
+                                  <span className="w-5 text-center text-sm font-semibold text-foreground">{quantity}</span>
+                                  <Button type="button" size="sm" disabled={!item.isAvailable} onClick={() => updateCart(item, 1)}>
+                                    +
+                                  </Button>
+                                </div>
+                              ) : (
                                 <Button type="button" size="sm" disabled={!item.isAvailable} onClick={() => updateCart(item, 1)}>
-                                  +
+                                  Add
                                 </Button>
-                              </div>
+                              )}
                               <span className={cn("text-xs font-semibold", item.isAvailable ? "text-success-700" : "text-warning-700")}>
                                 {item.isAvailable ? "Available" : "Unavailable"}
                               </span>

@@ -8,9 +8,9 @@ type ToastProps = {
 };
 
 const toneClass: Record<ToastType, string> = {
-  success: "border-success-100 bg-success-50 text-success-700",
-  error: "border-danger-100 bg-danger-50 text-danger-700",
-  info: "border-brand-100 bg-brand-50 text-brand-700"
+  success: "border-primary/40 bg-primary/20 text-brand-100",
+  error: "border-danger-500/45 bg-danger-500/20 text-danger-100",
+  info: "border-accent/45 bg-accent/20 text-accentBlue-100"
 };
 
 export const Toast = ({ message, type }: ToastProps) => {

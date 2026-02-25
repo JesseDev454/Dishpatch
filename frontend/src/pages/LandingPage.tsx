@@ -1,4 +1,4 @@
-import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
+import { Children, type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { AnimatePresence, motion, useMotionValue, useReducedMotion, useSpring } from "framer-motion";
 import {
@@ -427,20 +427,13 @@ export const LandingPage = () => {
         </section>
 
         <section className="mx-auto w-full max-w-7xl px-4 pb-10">
-          <Reveal className="flex flex-wrap gap-2">
-            {trustChips.map((chip, index) => (
-              <motion.span
-                key={chip}
-                initial={reducedMotion ? undefined : { opacity: 0, y: 14 }}
-                whileInView={reducedMotion ? undefined : { opacity: 1, y: 0 }}
-                viewport={{ once: true, amount: 0.4 }}
-                transition={reducedMotion ? undefined : { delay: index * 0.08, duration: 0.28 }}
-                className="card-hover rounded-full border border-border bg-card px-3 py-1.5 text-xs font-semibold text-muted-foreground"
-              >
+          <RevealStagger className="flex flex-wrap gap-2" stagger={0.1}>
+            {trustChips.map((chip) => (
+              <span key={chip} className="card-hover rounded-full border border-border bg-card px-3 py-1.5 text-xs font-semibold text-muted-foreground">
                 {chip}
-              </motion.span>
+              </span>
             ))}
-          </Reveal>
+          </RevealStagger>
         </section>
 
         <section id="features" className="mx-auto w-full max-w-7xl px-4 pb-14">
@@ -448,24 +441,22 @@ export const LandingPage = () => {
             <h2 className="text-3xl font-black tracking-tight">Features built for speed</h2>
             <p className="mt-2 text-sm text-muted-foreground">Everything needed to launch and run digital orders without operational noise.</p>
           </Reveal>
-          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-            {features.map((feature, index) => {
+          <RevealStagger className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3" childClassName="h-full" stagger={0.1}>
+            {features.map((feature) => {
               const Icon = feature.icon;
               return (
-                <Reveal key={feature.title} delay={index * 0.05}>
-                  <Card className="card-hover h-full">
-                    <div className="space-y-3">
-                      <div className="inline-flex rounded-xl border border-border bg-muted/45 p-2">
-                        <Icon className="h-5 w-5 text-primary transition-transform duration-200 group-hover:scale-105" />
-                      </div>
-                      <h3 className="text-lg font-semibold">{feature.title}</h3>
-                      <p className="text-sm text-muted-foreground">{feature.description}</p>
+                <Card key={feature.title} className="card-hover h-full">
+                  <div className="space-y-3">
+                    <div className="inline-flex rounded-xl border border-border bg-muted/45 p-2">
+                      <Icon className="h-5 w-5 text-primary transition-transform duration-200 group-hover:scale-105" />
                     </div>
-                  </Card>
-                </Reveal>
+                    <h3 className="text-lg font-semibold">{feature.title}</h3>
+                    <p className="text-sm text-muted-foreground">{feature.description}</p>
+                  </div>
+                </Card>
               );
             })}
-          </div>
+          </RevealStagger>
         </section>
 
         <section id="how-it-works" className="mx-auto w-full max-w-7xl px-4 pb-14">
@@ -475,20 +466,16 @@ export const LandingPage = () => {
           </Reveal>
 
           <div className="relative pl-8">
-            <motion.div
-              initial={reducedMotion ? undefined : { scaleY: 0 }}
-              whileInView={reducedMotion ? undefined : { scaleY: 1 }}
-              viewport={{ once: true, amount: 0.4 }}
-              transition={reducedMotion ? undefined : { duration: 0.55, ease: "easeOut" }}
-              style={{ originY: 0 }}
-              className="absolute left-[13px] top-0 h-full w-[2px] bg-gradient-to-b from-primary via-accent to-primary"
-            />
-            {[
-              { title: "Set up your menu", description: "Create categories, items, pricing, and food images from the admin dashboard." },
-              { title: "Share your link", description: "Send your public order page on WhatsApp, Instagram, and customer broadcasts." },
-              { title: "Get paid orders instantly", description: "Customers pay with Paystack and your team gets real-time updates immediately." }
-            ].map((step, index) => (
-              <Reveal key={step.title} delay={index * 0.08} className="relative mb-6 last:mb-0">
+            <Reveal className="pointer-events-none absolute left-[13px] top-0 h-full w-[2px]">
+              <div className="h-full w-[2px] rounded-full bg-gradient-to-b from-primary via-accent to-primary" />
+            </Reveal>
+            <RevealStagger className="space-y-6" stagger={0.1}>
+              {[
+                { title: "Set up your menu", description: "Create categories, items, pricing, and food images from the admin dashboard." },
+                { title: "Share your link", description: "Send your public order page on WhatsApp, Instagram, and customer broadcasts." },
+                { title: "Get paid orders instantly", description: "Customers pay with Paystack and your team gets real-time updates immediately." }
+              ].map((step, index) => (
+                <div key={step.title} className="relative">
                 <span className="absolute -left-8 top-1 inline-flex h-6 w-6 items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground">
                   {index + 1}
                 </span>
@@ -501,8 +488,9 @@ export const LandingPage = () => {
                     {index < 2 ? <ChevronRight className="mt-1 h-5 w-5 text-accent" /> : null}
                   </div>
                 </Card>
-              </Reveal>
-            ))}
+                </div>
+              ))}
+            </RevealStagger>
           </div>
         </section>
 
@@ -511,10 +499,11 @@ export const LandingPage = () => {
             <h2 className="text-3xl font-black tracking-tight">Live demo simulation</h2>
             <p className="mt-2 text-sm text-muted-foreground">A quick interactive preview of how ordering feels in Dishpatch.</p>
           </Reveal>
-          <Card>
+          <Reveal>
+            <Card>
             <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
               <div className="space-y-4">
-                <div className="grid gap-3 sm:grid-cols-2">
+                <RevealStagger className="grid gap-3 sm:grid-cols-2" stagger={0.1}>
                   <button
                     type="button"
                     onClick={() => addSimulationItem("Jollof Rice", 3200)}
@@ -531,18 +520,20 @@ export const LandingPage = () => {
                     <p className="font-semibold">Add Suya</p>
                     <p className="text-sm text-muted-foreground">₦2,500</p>
                   </button>
-                </div>
-                <div className="rounded-2xl border border-border bg-card p-4">
-                  <p className="text-xs text-muted-foreground">Quick insight</p>
-                  <p className="mt-1 text-sm">
-                    Every add-to-cart interaction should feel instant and responsive, especially on mobile.
-                  </p>
-                </div>
+                </RevealStagger>
+                <Reveal>
+                  <div className="rounded-2xl border border-border bg-card p-4">
+                    <p className="text-xs text-muted-foreground">Quick insight</p>
+                    <p className="mt-1 text-sm">
+                      Every add-to-cart interaction should feel instant and responsive, especially on mobile.
+                    </p>
+                  </div>
+                </Reveal>
               </div>
 
-              <div className="relative rounded-2xl border border-border bg-card p-4">
+              <Reveal className="relative rounded-2xl border border-border bg-card p-4">
                 <p className="text-sm font-semibold">Simulation status</p>
-                <div className="mt-3 space-y-3">
+                <RevealStagger className="mt-3 space-y-3">
                   <div className="rounded-xl border border-border bg-muted/35 p-3">
                     <p className="text-xs text-muted-foreground">Cart count</p>
                     <p className="text-2xl font-bold text-primary">{Math.round(animatedOrderCount)}</p>
@@ -551,7 +542,7 @@ export const LandingPage = () => {
                     <p className="text-xs text-muted-foreground">Subtotal</p>
                     <p className="text-2xl font-bold text-accent">₦{Math.round(animatedSubtotal).toLocaleString()}</p>
                   </div>
-                </div>
+                </RevealStagger>
                 <AnimatePresence>
                   {simToast ? (
                     <motion.div
@@ -564,9 +555,10 @@ export const LandingPage = () => {
                     </motion.div>
                   ) : null}
                 </AnimatePresence>
-              </div>
+              </Reveal>
             </div>
-          </Card>
+            </Card>
+          </Reveal>
         </section>
 
         <section id="pricing" className="mx-auto w-full max-w-7xl px-4 pb-14">
@@ -577,8 +569,8 @@ export const LandingPage = () => {
             </div>
             <PricingToggle reducedMotion={reducedMotion} />
           </Reveal>
-          <div className="grid gap-4 md:grid-cols-2">
-            <Card className="card-hover">
+          <RevealStagger className="grid gap-4 md:grid-cols-2" childClassName="h-full" stagger={0.1}>
+            <Card className="card-hover h-full">
               <h3 className="text-xl font-semibold">Starter</h3>
               <p className="mt-1 text-sm text-muted-foreground">Portfolio / demo projects</p>
               <p className="mt-4 text-4xl font-black text-primary">₦0</p>
@@ -588,7 +580,7 @@ export const LandingPage = () => {
               </Button>
             </Card>
 
-            <Card className="card-hover border-accent/35">
+            <Card className="card-hover h-full border-accent/35">
               <h3 className="text-xl font-semibold">Pro</h3>
               <p className="mt-1 text-sm text-muted-foreground">For real restaurants</p>
               <p className="mt-4 text-4xl font-black text-accent">Coming soon</p>
@@ -597,7 +589,7 @@ export const LandingPage = () => {
                 Join waitlist soon
               </Button>
             </Card>
-          </div>
+          </RevealStagger>
           <p className="mt-4 text-sm text-muted-foreground">
             Dishpatch is currently in portfolio/demo mode. Real restaurant onboarding is coming soon.
           </p>
@@ -607,16 +599,16 @@ export const LandingPage = () => {
           <Reveal className="mb-6">
             <h2 className="text-3xl font-black tracking-tight">FAQ</h2>
           </Reveal>
-          <Accordion type="single" collapsible className="space-y-3">
-            {faqs.map((faq, index) => (
-              <Reveal key={faq.question} delay={index * 0.04}>
-                <AccordionItem value={`faq-${index}`}>
+          <Reveal className="rounded-2xl border border-border bg-card/70 p-3 sm:p-4">
+            <Accordion type="single" collapsible className="space-y-3">
+              {faqs.map((faq, index) => (
+                <AccordionItem key={faq.question} value={`faq-${index}`}>
                   <AccordionTrigger>{faq.question}</AccordionTrigger>
                   <AccordionContent>{faq.answer}</AccordionContent>
                 </AccordionItem>
-              </Reveal>
-            ))}
-          </Accordion>
+              ))}
+            </Accordion>
+          </Reveal>
         </section>
 
         <section className="mx-auto w-full max-w-7xl px-4 pb-16">
@@ -663,15 +655,80 @@ const Reveal = ({
 }) => {
   const reducedMotion = useReducedMotion() ?? false;
 
+  if (reducedMotion) {
+    return <div className={className}>{children}</div>;
+  }
+
   return (
     <motion.div
-      initial={reducedMotion ? undefined : { opacity: 0, y: 22 }}
-      whileInView={reducedMotion ? undefined : { opacity: 1, y: 0 }}
-      viewport={{ once: true, amount: 0.2 }}
-      transition={reducedMotion ? undefined : { duration: 0.45, ease: [0.22, 1, 0.36, 1], delay }}
+      initial={{ opacity: 0, y: 16, scale: 0.98 }}
+      whileInView={{ opacity: 1, y: 0, scale: 1 }}
+      viewport={{ once: true, amount: 0.25 }}
+      transition={{ duration: 0.52, ease: "easeOut", delay }}
       className={className}
     >
       {children}
+    </motion.div>
+  );
+};
+
+const RevealStagger = ({
+  children,
+  className,
+  childClassName,
+  stagger = 0.1,
+  delayChildren = 0
+}: {
+  children: ReactNode;
+  className?: string;
+  childClassName?: string;
+  stagger?: number;
+  delayChildren?: number;
+}) => {
+  const reducedMotion = useReducedMotion() ?? false;
+
+  if (reducedMotion) {
+    return <div className={className}>{children}</div>;
+  }
+
+  const nodes = Children.toArray(children);
+
+  return (
+    <motion.div
+      initial="hidden"
+      whileInView="show"
+      viewport={{ once: true, amount: 0.25 }}
+      variants={{
+        hidden: {},
+        show: {
+          transition: {
+            staggerChildren: stagger,
+            delayChildren
+          }
+        }
+      }}
+      className={className}
+    >
+      {nodes.map((child, index) => (
+        <motion.div
+          key={(typeof child === "object" && child && "key" in child && child.key) ? String(child.key) : `reveal-${index}`}
+          variants={{
+            hidden: { opacity: 0, y: 16, scale: 0.98 },
+            show: {
+              opacity: 1,
+              y: 0,
+              scale: 1,
+              transition: {
+                duration: 0.52,
+                ease: "easeOut"
+              }
+            }
+          }}
+          className={childClassName}
+        >
+          {child}
+        </motion.div>
+      ))}
     </motion.div>
   );
 };

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
+import { ChartNoAxesColumn, TrendingDown, TrendingUp } from "lucide-react";
 import { AdminShell } from "../components/AdminShell";
 import { Badge } from "../components/ui/Badge";
 import { Button } from "../components/ui/Button";
@@ -58,25 +59,25 @@ const RevenueLineChart = ({ points }: RevenueLineChartProps) => {
 
   return (
     <div>
-      <div className="h-52 rounded-2xl border border-slate-100 bg-slate-50/70 p-3">
+      <div className="h-52 rounded-2xl border border-border/70 bg-muted/35 p-3">
         {points.length === 0 ? (
-          <div className="flex h-full items-center justify-center text-sm text-slate-500">No data</div>
+          <div className="flex h-full items-center justify-center text-sm text-muted-foreground">No data</div>
         ) : (
           <svg viewBox="0 0 100 60" preserveAspectRatio="none" className="h-full w-full">
-            <polyline points="0,60 100,60" fill="none" stroke="#e2e8f0" strokeWidth="0.8" />
-            <polyline points="0,45 100,45" fill="none" stroke="#f1f5f9" strokeWidth="0.7" />
-            <polyline points="0,30 100,30" fill="none" stroke="#f1f5f9" strokeWidth="0.7" />
-            <polyline points="0,15 100,15" fill="none" stroke="#f1f5f9" strokeWidth="0.7" />
+            <polyline points="0,60 100,60" fill="none" stroke="#dbe7d8" strokeWidth="0.8" />
+            <polyline points="0,45 100,45" fill="none" stroke="#ebf3e9" strokeWidth="0.7" />
+            <polyline points="0,30 100,30" fill="none" stroke="#ebf3e9" strokeWidth="0.7" />
+            <polyline points="0,15 100,15" fill="none" stroke="#ebf3e9" strokeWidth="0.7" />
             <polyline
               points={`${linePoints} 100,60 0,60`}
-              fill="rgba(14, 165, 233, 0.14)"
+              fill="rgba(59, 146, 52, 0.16)"
               stroke="none"
             />
-            <polyline points={linePoints} fill="none" stroke="#0ea5e9" strokeWidth="1.6" strokeLinejoin="round" />
+            <polyline points={linePoints} fill="none" stroke="#3b9234" strokeWidth="1.6" strokeLinejoin="round" />
           </svg>
         )}
       </div>
-      <div className="mt-3 grid grid-cols-4 gap-2 text-xs text-slate-500 sm:grid-cols-7">
+      <div className="mt-3 grid grid-cols-4 gap-2 text-xs text-muted-foreground sm:grid-cols-7">
         {points.map((point, index) => {
           const showLabel = index % labelStep === 0 || index === points.length - 1;
           return (
@@ -90,10 +91,28 @@ const RevenueLineChart = ({ points }: RevenueLineChartProps) => {
   );
 };
 
-const KpiCard = ({ label, value }: { label: string; value: string | number }) => (
+const KpiCard = ({
+  label,
+  value,
+  comparison
+}: {
+  label: string;
+  value: string | number;
+  comparison?: { deltaPercent: number };
+}) => (
   <Card>
-    <p className="text-sm font-medium text-slate-500">{label}</p>
-    <p className="mt-2 text-2xl font-bold tracking-tight text-slate-900">{value}</p>
+    <p className="text-sm font-medium text-muted-foreground">{label}</p>
+    <p className="mt-2 text-2xl font-bold tracking-tight text-foreground">{value}</p>
+    {comparison ? (
+      <span
+        className={`mt-2 inline-flex items-center gap-1 rounded-full px-2 py-1 text-xs font-semibold ${
+          comparison.deltaPercent >= 0 ? "bg-success-50 text-success-700" : "bg-danger-50 text-danger-700"
+        }`}
+      >
+        {comparison.deltaPercent >= 0 ? <TrendingUp className="h-3.5 w-3.5" /> : <TrendingDown className="h-3.5 w-3.5" />}
+        {comparison.deltaPercent >= 0 ? "↑" : "↓"} {Math.abs(comparison.deltaPercent).toFixed(0)}% vs previous period
+      </span>
+    ) : null}
   </Card>
 );
 
@@ -192,6 +211,26 @@ export const DashboardAnalyticsPage = () => {
     return Number(overview.kpis.totalRevenue) <= 0;
   }, [overview]);
 
+  const revenueComparison = useMemo(() => {
+    if (timeseries.length < 2) {
+      return null;
+    }
+
+    const midpoint = Math.floor(timeseries.length / 2);
+    const previous = timeseries.slice(0, midpoint).reduce((sum, point) => sum + Number(point.revenue), 0);
+    const current = timeseries.slice(midpoint).reduce((sum, point) => sum + Number(point.revenue), 0);
+
+    if (previous <= 0 && current <= 0) {
+      return null;
+    }
+
+    if (previous <= 0 && current > 0) {
+      return { deltaPercent: 100 };
+    }
+
+    return { deltaPercent: ((current - previous) / previous) * 100 };
+  }, [timeseries]);
+
   return (
     <AdminShell
       user={user}
@@ -202,7 +241,7 @@ export const DashboardAnalyticsPage = () => {
       subtitle="Track orders, revenue, and top-performing menu items."
       actions={
         <div className="inline-flex items-center gap-2">
-          <div className="inline-flex rounded-xl border border-slate-200 bg-white p-1">
+          <div className="inline-flex rounded-2xl border border-border bg-card p-1">
             <Button
               type="button"
               variant={range === "7d" ? "primary" : "ghost"}
@@ -243,12 +282,12 @@ export const DashboardAnalyticsPage = () => {
         <div className="space-y-4">
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
             <KpiCard label="Orders Today" value={overview.kpis.ordersToday} />
-            <KpiCard label="Revenue Today" value={formatNgn(overview.kpis.revenueToday)} />
+            <KpiCard label="Revenue Today" value={formatNgn(overview.kpis.revenueToday)} comparison={revenueComparison ?? undefined} />
             <KpiCard label={`Orders (${periodLabel})`} value={overview.kpis.ordersThisWeek} />
             <KpiCard label={`Revenue (${periodLabel})`} value={formatNgn(overview.kpis.revenueThisWeek)} />
             <KpiCard label="Average Order Value" value={formatNgn(overview.kpis.avgOrderValue)} />
             <Card>
-              <p className="text-sm font-medium text-slate-500">Payment Status Mix</p>
+              <p className="text-sm font-medium text-muted-foreground">Payment Status Mix</p>
               <div className="mt-3 flex flex-wrap gap-2">
                 <Badge variant="success">Paid: {overview.kpis.paidOrders}</Badge>
                 <Badge variant="warning">Pending: {overview.kpis.pendingPaymentOrders}</Badge>
@@ -268,13 +307,17 @@ export const DashboardAnalyticsPage = () => {
 
             <Card title="Top Items" subtitle={`Best sellers in ${periodLabel.toLowerCase()}`}>
               {topItems.length === 0 ? (
-                <EmptyState title="No top items yet" description="Paid orders will surface your best-selling menu items." />
+                <EmptyState
+                  icon={ChartNoAxesColumn}
+                  title="No top items yet"
+                  description="Paid orders will surface your best-selling menu items."
+                />
               ) : (
                 <div className="space-y-3">
                   {topItems.map((item) => (
-                    <div key={item.itemId} className="rounded-xl border border-slate-200 bg-slate-50/70 p-3">
-                      <p className="text-sm font-semibold text-slate-900">{item.name}</p>
-                      <p className="mt-1 text-xs text-slate-500">Qty sold: {item.quantity}</p>
+                    <div key={item.itemId} className="rounded-2xl border border-border bg-muted/35 p-3">
+                      <p className="text-sm font-semibold text-foreground">{item.name}</p>
+                      <p className="mt-1 text-xs text-muted-foreground">Qty sold: {item.quantity}</p>
                       <p className="mt-1 text-sm font-semibold text-brand-700">{formatNgn(item.revenue)}</p>
                     </div>
                   ))}
@@ -291,7 +334,7 @@ export const DashboardAnalyticsPage = () => {
           ) : null}
 
           {!hasPaidOrders ? (
-            <div className="text-sm text-slate-500">
+            <div className="text-sm text-muted-foreground">
               Need sample data? Open your public page:{" "}
               <Link to={`/r/${user?.restaurant.slug}`} className="font-semibold text-brand-700 hover:text-brand-800">
                 /r/{user?.restaurant.slug}

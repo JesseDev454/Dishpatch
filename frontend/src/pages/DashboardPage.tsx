@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+import { FolderTree } from "lucide-react";
 import { AdminShell } from "../components/AdminShell";
 import { CategoryManager } from "../components/CategoryManager";
 import { ItemManager } from "../components/ItemManager";
@@ -91,15 +92,15 @@ export const DashboardPage = () => {
     >
       <div className="grid gap-4 md:grid-cols-2">
         <Card title="Categories" subtitle="Total categories currently in your menu">
-          <p className="text-2xl font-bold text-slate-900">{categories.length}</p>
+          <p className="text-2xl font-bold text-foreground">{categories.length}</p>
         </Card>
         <Card title="Items" subtitle="Menu items available for ordering">
-          <p className="text-2xl font-bold text-slate-900">{items.length}</p>
+          <p className="text-2xl font-bold text-foreground">{items.length}</p>
         </Card>
       </div>
 
       {error ? (
-        <div className="mt-4 rounded-xl border border-danger-100 bg-danger-50 px-4 py-3 text-sm font-medium text-danger-700">
+        <div className="mt-4 rounded-2xl border border-danger-100 bg-danger-50 px-4 py-3 text-sm font-medium text-danger-700">
           {error}
         </div>
       ) : null}
@@ -120,7 +121,20 @@ export const DashboardPage = () => {
       </div>
       {view === "all" && categories.length === 0 && items.length === 0 ? (
         <div className="mt-4">
-          <EmptyState title="No menu data yet" description="Add categories and items to get your storefront ready." />
+          <EmptyState
+            icon={FolderTree}
+            title="No menu data yet"
+            description="Add categories and items to get your storefront ready."
+            action={
+              <div className="inline-flex items-center gap-2">
+                <span className="rounded-full border border-border bg-muted px-3 py-1 text-xs font-medium text-muted-foreground">
+                  Tip
+                </span>
+                <span className="text-xs text-muted-foreground">Start with categories, then add items.</span>
+              </div>
+            }
+            className="md:py-10"
+          />
         </div>
       ) : null}
     </AdminShell>

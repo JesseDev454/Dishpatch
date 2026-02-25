@@ -1,5 +1,5 @@
 import { Suspense, lazy } from "react";
-import { Navigate, Route, Routes } from "react-router-dom";
+import { Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { useAuth } from "./context/AuthContext";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { PageLoader } from "./components/ui/PageLoader";
@@ -26,43 +26,47 @@ function HomeRedirect() {
 }
 
 export default function App() {
+  const location = useLocation();
+
   return (
     <Suspense
       fallback={<PageLoader message="Loading page..." />}
     >
-      <Routes>
-        <Route path="/" element={<HomeRedirect />} />
-        <Route path="/register" element={<RegisterPage />} />
-        <Route path="/login" element={<LoginPage />} />
-        <Route path="/r/:slug" element={<PublicOrderPage />} />
-        <Route path="/payment/callback" element={<PaymentCallbackPage />} />
-        <Route path="/receipt/:reference" element={<ReceiptPage />} />
-        <Route
-          path="/dashboard"
-          element={
-            <ProtectedRoute>
-              <DashboardPage />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/dashboard/orders"
-          element={
-            <ProtectedRoute>
-              <LiveOrdersPage />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/dashboard/analytics"
-          element={
-            <ProtectedRoute>
-              <DashboardAnalyticsPage />
-            </ProtectedRoute>
-          }
-        />
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
+      <div key={location.pathname} className="page-enter">
+        <Routes location={location}>
+          <Route path="/" element={<HomeRedirect />} />
+          <Route path="/register" element={<RegisterPage />} />
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/r/:slug" element={<PublicOrderPage />} />
+          <Route path="/payment/callback" element={<PaymentCallbackPage />} />
+          <Route path="/receipt/:reference" element={<ReceiptPage />} />
+          <Route
+            path="/dashboard"
+            element={
+              <ProtectedRoute>
+                <DashboardPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/dashboard/orders"
+            element={
+              <ProtectedRoute>
+                <LiveOrdersPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/dashboard/analytics"
+            element={
+              <ProtectedRoute>
+                <DashboardAnalyticsPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </div>
     </Suspense>
   );
 }

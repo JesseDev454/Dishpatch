@@ -4,26 +4,26 @@
 
 @layer base {
   :root {
-    --background: 210 33% 99%;
-    --foreground: 222.2 84% 4.9%;
+    --background: 120 20% 98%;
+    --foreground: 222 47% 11%;
     --card: 0 0% 100%;
     --card-foreground: 222.2 84% 4.9%;
     --popover: 0 0% 100%;
     --popover-foreground: 222.2 84% 4.9%;
-    --primary: 199 89% 48%;
-    --primary-foreground: 210 40% 98%;
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
+    --primary: 116 43% 39%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 120 22% 95%;
+    --secondary-foreground: 222 47% 11%;
+    --muted: 120 20% 95%;
+    --muted-foreground: 220 9% 38%;
+    --accent: 207 99% 29%;
+    --accent-foreground: 0 0% 100%;
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 210 40% 98%;
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 199 89% 48%;
-    --radius: 0.9rem;
+    --border: 118 18% 88%;
+    --input: 118 18% 88%;
+    --ring: 116 43% 39%;
+    --radius: 1rem;
   }
 
   html,
@@ -34,7 +34,9 @@
 
   body {
     @apply bg-background font-sans text-foreground antialiased;
-    background-image: radial-gradient(circle at top right, rgba(186, 230, 253, 0.45), transparent 32%);
+    background-image:
+      radial-gradient(circle at top right, rgba(59, 146, 52, 0.12), transparent 36%),
+      radial-gradient(circle at bottom left, rgba(1, 82, 146, 0.08), transparent 35%);
   }
 
   * {
@@ -52,7 +54,7 @@
   }
 
   .card-base {
-    @apply rounded-2xl border bg-card text-card-foreground shadow-soft;
+    @apply rounded-2xl border bg-card text-card-foreground shadow-soft transition-all duration-200;
   }
 }
 
@@ -64,6 +66,18 @@
   .no-scrollbar {
     -ms-overflow-style: none;
     scrollbar-width: none;
+  }
+
+  .page-enter {
+    animation: fade-in 220ms ease-out;
+  }
+
+  .button-pop {
+    @apply transition-all duration-200 hover:scale-[1.02] active:scale-[0.99];
+  }
+
+  .card-hover {
+    @apply transition-all duration-200 hover:-translate-y-0.5 hover:shadow-card;
   }
 }
 

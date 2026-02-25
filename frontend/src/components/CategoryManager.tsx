@@ -1,5 +1,5 @@
 import { FormEvent, useState } from "react";
-import { MoreHorizontal, Plus } from "lucide-react";
+import { FolderTree, MoreHorizontal, Plus } from "lucide-react";
 import { api } from "../lib/api";
 import { useToast } from "../context/ToastContext";
 import { getApiErrorMessage } from "../lib/errors";
@@ -99,6 +99,11 @@ export const CategoryManager = ({ categories, onChange }: CategoryManagerProps) 
   };
 
   const deleteCategory = async (id: number) => {
+    const shouldDelete = window.confirm("Delete this category? This action cannot be undone.");
+    if (!shouldDelete) {
+      return;
+    }
+
     setError(null);
     setDeletingIds((prev) => new Set(prev).add(id));
     try {
@@ -139,6 +144,7 @@ export const CategoryManager = ({ categories, onChange }: CategoryManagerProps) 
               <InputField
                 required
                 label="Category name"
+                helperText="This is what customers will see on your public menu."
                 value={createForm.name}
                 onChange={(event) => setCreateForm((prev) => ({ ...prev, name: event.target.value }))}
                 placeholder="e.g. Rice & Sides"
@@ -146,6 +152,7 @@ export const CategoryManager = ({ categories, onChange }: CategoryManagerProps) 
               <InputField
                 label="Sort order"
                 type="number"
+                helperText="Lower numbers appear first in your menu navigation."
                 value={createForm.sortOrder}
                 onChange={(event) => setCreateForm((prev) => ({ ...prev, sortOrder: event.target.value }))}
               />
@@ -165,7 +172,17 @@ export const CategoryManager = ({ categories, onChange }: CategoryManagerProps) 
       {error ? <p className="mb-3 text-sm font-medium text-destructive">{error}</p> : null}
 
       {categories.length === 0 ? (
-        <EmptyState title="No categories yet" description="Create your first category to organize menu items." />
+        <EmptyState
+          icon={FolderTree}
+          title="No categories yet"
+          description="Create your first category to organize menu items."
+          action={
+            <Button size="sm" onClick={() => setCreateDialogOpen(true)}>
+              <Plus className="mr-1 h-4 w-4" />
+              Create Category
+            </Button>
+          }
+        />
       ) : (
         <Table>
           <TableHeader>
@@ -215,12 +232,14 @@ export const CategoryManager = ({ categories, onChange }: CategoryManagerProps) 
             <InputField
               required
               label="Category name"
+              helperText="Customers will see this category name on your menu."
               value={editForm.name}
               onChange={(event) => setEditForm((prev) => ({ ...prev, name: event.target.value }))}
             />
             <InputField
               type="number"
               label="Sort order"
+              helperText="Lower numbers appear first in your menu navigation."
               value={editForm.sortOrder}
               onChange={(event) => setEditForm((prev) => ({ ...prev, sortOrder: event.target.value }))}
             />
@@ -238,4 +257,3 @@ export const CategoryManager = ({ categories, onChange }: CategoryManagerProps) 
     </Card>
   );
 };
-

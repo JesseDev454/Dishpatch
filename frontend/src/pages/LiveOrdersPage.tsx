@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { io, Socket } from "socket.io-client";
+import { ChefHat, CircleCheck, Clock3, PackageCheck, ShieldX } from "lucide-react";
 import { AdminShell } from "../components/AdminShell";
 import { Button } from "../components/ui/Button";
 import { Card } from "../components/ui/Card";
@@ -263,26 +264,26 @@ export const LiveOrdersPage = () => {
   const renderOrderCard = (order: OrderSummary) => (
     <article
       key={order.id}
-      className={`rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition duration-200 ${
-        freshOrderIds.has(order.id) ? "ring-2 ring-brand-300 ring-offset-2 animate-fade-in" : ""
+      className={`card-hover rounded-2xl border bg-card p-4 ${
+        freshOrderIds.has(order.id) ? "ring-2 ring-primary/30 ring-offset-2 animate-fade-in" : ""
       }`}
     >
       <div className="mb-2 flex items-start justify-between gap-2">
         <div>
-          <strong className="text-slate-900">Order #{order.id}</strong>
-          <p className="text-sm text-slate-500">
+          <strong className="text-foreground">Order #{order.id}</strong>
+          <p className="text-sm text-muted-foreground">
             {new Date(order.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })} | {order.type}
           </p>
         </div>
         <OrderStatusBadge status={order.status} />
       </div>
-      <p className="text-sm text-slate-600">
+      <p className="text-sm text-foreground/80">
         {order.customerName} | {order.customerPhone}
       </p>
-      {order.deliveryAddress ? <p className="text-sm text-slate-500">{order.deliveryAddress}</p> : null}
+      {order.deliveryAddress ? <p className="text-sm text-muted-foreground">{order.deliveryAddress}</p> : null}
       <div className="my-3 space-y-1">
         {order.items.map((item) => (
-          <p key={item.id} className="text-sm text-slate-500">
+          <p key={item.id} className="text-sm text-muted-foreground">
             {item.quantity} x {item.nameSnapshot} (NGN {Number(item.unitPriceSnapshot).toLocaleString()})
           </p>
         ))}
@@ -316,30 +317,30 @@ export const LiveOrdersPage = () => {
         </>
       }
     >
-      <p className="mb-4 text-sm text-slate-500">Updates are synced automatically for all staff signed into this restaurant.</p>
+      <p className="mb-4 text-sm text-muted-foreground">Updates are synced automatically for all staff signed into this restaurant.</p>
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
         <Card title="Awaiting Payment">
           <div className="space-y-2">
-            {awaitingPayment.length ? awaitingPayment.map(renderOrderCard) : <EmptyState title="No unpaid orders" />}
+            {awaitingPayment.length ? awaitingPayment.map(renderOrderCard) : <EmptyState icon={Clock3} title="No unpaid orders" />}
           </div>
         </Card>
         <Card title="Incoming / Paid">
-          <div className="space-y-2">{incoming.length ? incoming.map(renderOrderCard) : <EmptyState title="No paid orders" />}</div>
+          <div className="space-y-2">{incoming.length ? incoming.map(renderOrderCard) : <EmptyState icon={CircleCheck} title="No paid orders" />}</div>
         </Card>
         <Card title="In Progress">
-          <div className="space-y-2">{inProgress.length ? inProgress.map(renderOrderCard) : <EmptyState title="No orders in prep" />}</div>
+          <div className="space-y-2">{inProgress.length ? inProgress.map(renderOrderCard) : <EmptyState icon={ChefHat} title="No orders in prep" />}</div>
         </Card>
         <Card title="Ready">
-          <div className="space-y-2">{ready.length ? ready.map(renderOrderCard) : <EmptyState title="No ready orders" />}</div>
+          <div className="space-y-2">{ready.length ? ready.map(renderOrderCard) : <EmptyState icon={PackageCheck} title="No ready orders" />}</div>
         </Card>
         <Card title="Completed">
           <div className="space-y-2">
-            {completed.length ? completed.map(renderOrderCard) : <EmptyState title="No completed orders yet" />}
+            {completed.length ? completed.map(renderOrderCard) : <EmptyState icon={CircleCheck} title="No completed orders yet" />}
           </div>
         </Card>
         <Card title="Closed">
           <div className="space-y-2">
-            {closed.length ? closed.map(renderOrderCard) : <EmptyState title="No cancelled or failed orders" />}
+            {closed.length ? closed.map(renderOrderCard) : <EmptyState icon={ShieldX} title="No cancelled or failed orders" />}
           </div>
         </Card>
       </div>

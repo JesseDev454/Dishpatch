@@ -43,8 +43,10 @@ const SidebarNav = ({ onNavigate }: { onNavigate?: () => void }) => {
             to={item.to}
             onClick={onNavigate}
             className={cn(
-              "focus-ring flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition",
-              active ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:bg-muted hover:text-foreground"
+              "focus-ring flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium transition-all duration-200",
+              active
+                ? "bg-primary text-primary-foreground shadow-sm"
+                : "text-muted-foreground hover:bg-primary/10 hover:text-foreground"
             )}
           >
             <Icon className="h-4 w-4" />
@@ -62,7 +64,7 @@ export const AdminShell = ({ user, onLogout, title, subtitle, actions, children 
   return (
     <div className="min-h-screen bg-background">
       <div className="grid min-h-screen lg:grid-cols-[264px_minmax(0,1fr)]">
-        <aside className="hidden border-r bg-card/60 px-4 py-6 lg:block">
+        <aside className="hidden border-r bg-card/70 px-4 py-6 backdrop-blur lg:block">
           <div className="mb-6 px-2">
             <p className="text-xl font-bold tracking-tight text-foreground">Dishpatch</p>
             <p className="mt-1 text-xs text-muted-foreground">{user?.restaurant.name}</p>
@@ -144,4 +146,3 @@ export const AdminShell = ({ user, onLogout, title, subtitle, actions, children 
     </div>
   );
 };
-

@@ -12,7 +12,7 @@ const badgeVariants = cva(
         warning: "border-warning-100 bg-warning-50 text-warning-700",
         danger: "border-danger-100 bg-danger-50 text-danger-700",
         info: "border-brand-100 bg-brand-50 text-brand-700",
-        muted: "border-slate-200 bg-slate-100 text-slate-600"
+        muted: "border-border bg-muted text-muted-foreground"
       }
     },
     defaultVariants: {
@@ -49,4 +49,3 @@ export const OrderStatusBadge = ({ status, className }: { status: OrderStatus; c
     </Badge>
   );
 };
-

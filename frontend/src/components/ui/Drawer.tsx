@@ -14,7 +14,7 @@ export const Drawer = ({ open, onClose, title, children, className }: DrawerProp
     <Sheet open={open} onOpenChange={(nextOpen) => (!nextOpen ? onClose() : null)}>
       <SheetContent
         side="bottom"
-        className={`flex h-screen max-h-screen flex-col rounded-t-3xl p-4 md:hidden ${className ?? ""}`}
+        className={`flex h-screen max-h-screen flex-col rounded-t-[1.25rem] p-4 md:hidden ${className ?? ""}`}
         style={{ height: "100dvh", maxHeight: "100dvh" }}
       >
         <SheetHeader className="mb-3">

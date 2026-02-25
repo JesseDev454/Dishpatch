@@ -15,7 +15,7 @@ const toneClass: Record<ToastType, string> = {
 
 export const Toast = ({ message, type }: ToastProps) => {
   return (
-    <div className={cn("animate-fade-in rounded-xl border px-4 py-3 text-sm font-medium shadow-soft", toneClass[type])} role="status">
+    <div className={cn("animate-fade-in rounded-2xl border px-4 py-3 text-sm font-medium shadow-soft", toneClass[type])} role="status">
       {message}
     </div>
   );

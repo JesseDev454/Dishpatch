@@ -22,14 +22,14 @@ const SheetOverlay = React.forwardRef<
 SheetOverlay.displayName = DialogPrimitive.Overlay.displayName;
 
 const sheetVariants = cva(
-  "fixed z-50 gap-4 bg-background p-6 shadow-card transition ease-in-out data-[state=open]:animate-fade-in",
+  "fixed z-50 gap-4 bg-background p-6 shadow-card transition-transform duration-300 ease-out",
   {
     variants: {
       side: {
-        top: "inset-x-0 top-0 border-b",
-        bottom: "inset-x-0 bottom-0 border-t rounded-t-3xl",
-        left: "inset-y-0 left-0 h-full w-3/4 border-r sm:max-w-sm",
-        right: "inset-y-0 right-0 h-full w-3/4 border-l sm:max-w-sm"
+        top: "inset-x-0 top-0 border-b data-[state=closed]:-translate-y-full data-[state=open]:translate-y-0",
+        bottom: "inset-x-0 bottom-0 border-t rounded-t-[1.25rem] data-[state=closed]:translate-y-full data-[state=open]:translate-y-0",
+        left: "inset-y-0 left-0 h-full w-3/4 border-r sm:max-w-sm data-[state=closed]:-translate-x-full data-[state=open]:translate-x-0",
+        right: "inset-y-0 right-0 h-full w-3/4 border-l sm:max-w-sm data-[state=closed]:translate-x-full data-[state=open]:translate-x-0"
       }
     },
     defaultVariants: {
@@ -96,4 +96,3 @@ export {
   SheetTitle,
   SheetDescription
 };
-

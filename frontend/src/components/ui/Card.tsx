@@ -9,18 +9,17 @@ type CardProps = HTMLAttributes<HTMLDivElement> & {
 
 export const Card = ({ className, children, title, subtitle, action, ...props }: CardProps) => {
   return (
-    <section className={cn("rounded-xl border bg-card text-card-foreground shadow-soft", className)} {...props}>
+    <section className={cn("card-base rounded-2xl", className)} {...props}>
       {title || action ? (
-        <header className="flex items-start justify-between gap-3 border-b px-5 py-4">
+        <header className="flex items-start justify-between gap-3 border-b px-6 py-5">
           <div>
-            {title ? <h3 className="text-base font-semibold tracking-tight text-foreground">{title}</h3> : null}
-            {subtitle ? <p className="mt-1 text-sm text-muted-foreground">{subtitle}</p> : null}
+            {title ? <h3 className="text-base font-semibold tracking-tight text-foreground sm:text-lg">{title}</h3> : null}
+            {subtitle ? <p className="mt-1 text-sm leading-relaxed text-muted-foreground">{subtitle}</p> : null}
           </div>
           {action ? <div>{action}</div> : null}
         </header>
       ) : null}
-      <div className="p-5">{children}</div>
+      <div className="p-6">{children}</div>
     </section>
   );
 };
-

@@ -90,7 +90,7 @@ export const PaymentCallbackPage = () => {
     <div className="grid min-h-screen place-items-center px-4">
       {status === "pending" ? (
         <Card title="Processing payment..." subtitle="Please wait while we confirm your transaction with Paystack." className="w-full max-w-xl">
-          <p className="inline-flex items-center gap-2 text-sm text-slate-500">
+          <p className="inline-flex items-center gap-2 text-sm text-muted-foreground">
             <span className="h-4 w-4 animate-spin rounded-full border-2 border-brand-200 border-t-brand-500" />
             Verifying reference {reference ?? "n/a"}
           </p>

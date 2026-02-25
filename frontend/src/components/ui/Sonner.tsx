@@ -8,11 +8,10 @@ export const Sonner = () => {
       closeButton
       toastOptions={{
         classNames: {
-          toast: "font-sans",
+          toast: "font-sans rounded-2xl border border-border bg-card text-foreground",
           title: "text-sm font-medium"
         }
       }}
     />
   );
 };
-

@@ -1,6 +1,6 @@
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { AxiosProgressEvent } from "axios";
-import { ImagePlus, MoreHorizontal, Plus, Trash2 } from "lucide-react";
+import { ImagePlus, MoreHorizontal, PackageSearch, Plus, Trash2 } from "lucide-react";
 import { api } from "../lib/api";
 import { useToast } from "../context/ToastContext";
 import { getApiErrorMessage } from "../lib/errors";
@@ -260,6 +260,11 @@ export const ItemManager = ({ items, categories, onChange }: ItemManagerProps) =
   };
 
   const deleteItem = async (id: number) => {
+    const shouldDelete = window.confirm("Delete this item? This action cannot be undone.");
+    if (!shouldDelete) {
+      return;
+    }
+
     setError(null);
     setDeletingIds((prev) => new Set(prev).add(id));
     try {
@@ -355,11 +360,13 @@ export const ItemManager = ({ items, categories, onChange }: ItemManagerProps) =
               <InputField
                 required
                 label="Item name"
+                helperText="This is what customers will see."
                 value={form.name}
                 onChange={(event) => setForm((prev) => ({ ...prev, name: event.target.value }))}
               />
               <InputField
                 label="Description"
+                helperText="High-quality descriptions increase conversions."
                 value={form.description}
                 onChange={(event) => setForm((prev) => ({ ...prev, description: event.target.value }))}
               />
@@ -369,6 +376,7 @@ export const ItemManager = ({ items, categories, onChange }: ItemManagerProps) =
                 type="number"
                 step="0.01"
                 min="0"
+                helperText="Customers are charged this amount per item."
                 value={form.price}
                 onChange={(event) => setForm((prev) => ({ ...prev, price: event.target.value }))}
               />
@@ -381,7 +389,7 @@ export const ItemManager = ({ items, categories, onChange }: ItemManagerProps) =
               </div>
               <div className="rounded-lg border bg-muted/30 p-3">
                 <p className="text-sm font-medium">Item image (optional)</p>
-                <p className="mt-1 text-xs text-muted-foreground">JPEG, PNG or WEBP up to 2MB.</p>
+                <p className="mt-1 text-xs text-muted-foreground">High-quality images increase conversions. JPEG, PNG or WEBP up to 2MB.</p>
                 <div className="mt-3 flex items-center gap-3">
                   <Button type="button" variant="secondary" size="sm" onClick={() => uploadInputRef.current?.click()}>
                     <ImagePlus className="mr-1 h-4 w-4" />
@@ -420,7 +428,12 @@ export const ItemManager = ({ items, categories, onChange }: ItemManagerProps) =
       }
     >
       <div className="mb-4 grid gap-3 sm:grid-cols-2">
-        <SelectField label="Filter by category" value={categoryFilter} onChange={(event) => setCategoryFilter(event.target.value)}>
+        <SelectField
+          label="Filter by category"
+          helperText="Use filters to quickly manage a large menu."
+          value={categoryFilter}
+          onChange={(event) => setCategoryFilter(event.target.value)}
+        >
           <option value="all">All categories</option>
           {categories.map((category) => (
             <option key={category.id} value={category.id}>
@@ -434,11 +447,21 @@ export const ItemManager = ({ items, categories, onChange }: ItemManagerProps) =
       {error ? <p className="mb-3 text-sm font-medium text-destructive">{error}</p> : null}
 
       {visibleItems.length === 0 ? (
-        <EmptyState title="No items yet" description="Create your first menu item to start receiving orders." />
+        <EmptyState
+          icon={PackageSearch}
+          title="No items yet"
+          description="Create your first menu item to start receiving orders."
+          action={
+            <Button size="sm" disabled={categories.length === 0} onClick={() => setCreateDialogOpen(true)}>
+              <Plus className="mr-1 h-4 w-4" />
+              Create Item
+            </Button>
+          }
+        />
       ) : (
         <div className="space-y-3">
           {visibleItems.map((item) => (
-            <article key={item.id} className="rounded-xl border bg-card p-4">
+            <article key={item.id} className="card-hover rounded-2xl border bg-card p-4">
               <div className="flex items-start gap-3">
                 {item.imageUrl ? (
                   <img src={item.imageUrl} alt={item.name} className="h-12 w-12 rounded-lg border object-cover" />
@@ -526,11 +549,13 @@ export const ItemManager = ({ items, categories, onChange }: ItemManagerProps) =
             <InputField
               required
               label="Item name"
+              helperText="This is what customers will see."
               value={editingForm.name}
               onChange={(event) => setEditingForm((prev) => ({ ...prev, name: event.target.value }))}
             />
             <InputField
               label="Description"
+              helperText="High-quality descriptions increase conversions."
               value={editingForm.description}
               onChange={(event) => setEditingForm((prev) => ({ ...prev, description: event.target.value }))}
             />
@@ -540,6 +565,7 @@ export const ItemManager = ({ items, categories, onChange }: ItemManagerProps) =
               type="number"
               step="0.01"
               min="0"
+              helperText="Customers are charged this amount per item."
               value={editingForm.price}
               onChange={(event) => setEditingForm((prev) => ({ ...prev, price: event.target.value }))}
             />

@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { ShoppingCart } from "lucide-react";
 import { useParams } from "react-router-dom";
 import { useToast } from "../context/ToastContext";
 import { publicApi } from "../lib/api";
@@ -8,7 +9,6 @@ import { Card } from "../components/ui/Card";
 import { Drawer } from "../components/ui/Drawer";
 import { EmptyState } from "../components/ui/EmptyState";
 import { InputField } from "../components/ui/InputField";
-import { PageLoader } from "../components/ui/PageLoader";
 import { Skeleton } from "../components/ui/Skeleton";
 
 type PublicMenuItem = {
@@ -54,6 +54,7 @@ const formatNgn = (value: number): string => `NGN ${ngnNumberFormatter.format(va
 export const PublicOrderPage = () => {
   const { slug } = useParams();
   const { showToast } = useToast();
+  const categoryRefs = useRef<Record<number, HTMLDivElement | null>>({});
 
   const [menu, setMenu] = useState<MenuResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -92,23 +93,54 @@ export const PublicOrderPage = () => {
     }
   }, [slug, showToast]);
 
-  const activeCategory = useMemo(() => {
+  useEffect(() => {
     if (!menu?.categories.length) {
-      return null;
+      return;
     }
-    if (activeCategoryId === null) {
-      return menu.categories[0];
-    }
-    return menu.categories.find((category) => category.id === activeCategoryId) ?? menu.categories[0];
-  }, [menu, activeCategoryId]);
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const visible = entries
+          .filter((entry) => entry.isIntersecting)
+          .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top)[0];
+        if (!visible) {
+          return;
+        }
+        const categoryId = Number((visible.target as HTMLDivElement).dataset.categoryId);
+        if (Number.isFinite(categoryId)) {
+          setActiveCategoryId(categoryId);
+        }
+      },
+      {
+        rootMargin: "-20% 0px -60% 0px",
+        threshold: 0.15
+      }
+    );
+
+    menu.categories.forEach((category) => {
+      const section = categoryRefs.current[category.id];
+      if (section) {
+        observer.observe(section);
+      }
+    });
+
+    return () => observer.disconnect();
+  }, [menu]);
 
   const cartTotal = useMemo(() => cart.reduce((sum, line) => sum + Number(line.item.price) * line.quantity, 0), [cart]);
   const cartCount = useMemo(() => cart.reduce((sum, line) => sum + line.quantity, 0), [cart]);
+
+  const scrollToCategory = (categoryId: number) => {
+    setActiveCategoryId(categoryId);
+    categoryRefs.current[categoryId]?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
 
   const updateCart = (item: PublicMenuItem, delta: number) => {
     if (!item.isAvailable) {
       return;
     }
+
+    const currentQuantity = cart.find((line) => line.item.id === item.id)?.quantity ?? 0;
 
     setCart((prev) => {
       const existing = prev.find((line) => line.item.id === item.id);
@@ -123,6 +155,10 @@ export const PublicOrderPage = () => {
 
       return prev.map((line) => (line.item.id === item.id ? { ...line, quantity: nextQuantity } : line));
     });
+
+    if (delta > 0 && currentQuantity === 0) {
+      showToast(`${item.name} added to cart`, "success", 1200);
+    }
 
     setOrderId(null);
   };
@@ -198,6 +234,12 @@ export const PublicOrderPage = () => {
   };
 
   const isPayNowStep = Boolean(orderId);
+  const canCreateOrder =
+    cart.length > 0 &&
+    customerName.trim().length > 0 &&
+    customerPhone.trim().length > 0 &&
+    customerEmail.trim().length > 0 &&
+    (orderType === "PICKUP" || deliveryAddress.trim().length > 0);
   const primaryActionLoading = isPayNowStep ? isInitializingPayment : isSubmitting;
   const primaryActionLabel = isPayNowStep
     ? isInitializingPayment
@@ -206,7 +248,9 @@ export const PublicOrderPage = () => {
     : isSubmitting
       ? "Creating..."
       : "Place Order";
-  const primaryActionDisabled = cart.length === 0 || primaryActionLoading;
+  const primaryActionDisabled = isPayNowStep
+    ? primaryActionLoading || !orderId || customerEmail.trim().length === 0
+    : primaryActionLoading || !canCreateOrder;
 
   const onPrimaryAction = () => {
     if (isPayNowStep) {
@@ -219,6 +263,10 @@ export const PublicOrderPage = () => {
 
   const renderCheckoutForm = () => (
     <div className="space-y-4">
+      <div className="space-y-1">
+        <h3 className="text-base font-semibold text-foreground">Customer details</h3>
+        <p className="text-xs text-muted-foreground">These details are used for delivery updates and payment receipt.</p>
+      </div>
       <InputField
         required
         label="Full name"
@@ -257,8 +305,8 @@ export const PublicOrderPage = () => {
         placeholder="customer@email.com"
       />
       <div className="space-y-2">
-        <p className="text-sm font-medium text-slate-700">Order type</p>
-        <div className="grid grid-cols-2 gap-2 rounded-xl border border-slate-200 bg-slate-100 p-1">
+        <p className="text-sm font-medium text-foreground">Order type</p>
+        <div className="grid grid-cols-2 gap-2 rounded-2xl border border-border bg-muted/50 p-1">
           <Button
             type="button"
             size="sm"
@@ -303,27 +351,32 @@ export const PublicOrderPage = () => {
 
   const renderCartItemsSection = (isMobile = false) => (
     <div className="space-y-3">
-      <p className="text-sm font-semibold text-slate-700">Cart items</p>
+      <div className="space-y-1">
+        <h3 className="text-base font-semibold text-foreground">Order summary</h3>
+        <p className="text-xs text-muted-foreground">Review items and adjust quantities before checkout.</p>
+      </div>
       <div className={cn("space-y-2", isMobile ? "" : "max-h-64 overflow-y-auto pr-1")}>
         {cart.length === 0 ? (
           <EmptyState title="Cart is empty" description="Add menu items to continue." />
         ) : (
           cart.map((line) => (
-            <div key={line.item.id} className="flex items-center justify-between gap-2 rounded-xl border border-slate-200 bg-white p-3">
-              <div>
-                <p className="font-semibold text-slate-900">{line.item.name}</p>
-                <p className="text-sm text-slate-500">
-                  {line.quantity} x {formatNgn(Number(line.item.price))}
-                </p>
-              </div>
-              <div className="inline-flex items-center gap-2">
-                <Button type="button" variant="secondary" size="sm" onClick={() => updateCart(line.item, -1)}>
-                  -
-                </Button>
-                <span className="w-4 text-center text-sm font-semibold text-slate-900">{line.quantity}</span>
-                <Button type="button" size="sm" onClick={() => updateCart(line.item, 1)}>
-                  +
-                </Button>
+            <div key={line.item.id} className="rounded-2xl border border-border bg-card p-3">
+              <div className="flex items-center justify-between gap-2">
+                <div className="min-w-0">
+                  <p className="truncate font-semibold text-foreground">{line.item.name}</p>
+                  <p className="text-sm text-muted-foreground">
+                    {line.quantity} x {formatNgn(Number(line.item.price))}
+                  </p>
+                </div>
+                <div className="inline-flex items-center gap-2">
+                  <Button type="button" variant="secondary" size="sm" onClick={() => updateCart(line.item, -1)}>
+                    -
+                  </Button>
+                  <span className="w-4 text-center text-sm font-semibold text-foreground">{line.quantity}</span>
+                  <Button type="button" size="sm" onClick={() => updateCart(line.item, 1)}>
+                    +
+                  </Button>
+                </div>
               </div>
             </div>
           ))
@@ -335,8 +388,10 @@ export const PublicOrderPage = () => {
   const renderCheckoutFooter = (isMobile = false) => (
     <div
       className={cn(
-        "border-t border-slate-200 bg-white",
-        isMobile ? "sticky bottom-0 z-20 mt-4 px-1 pt-4 shadow-[0_-8px_20px_rgba(15,23,42,0.08)]" : "mt-6 pt-4"
+        "border-t border-border bg-background/95 backdrop-blur",
+        isMobile
+          ? "sticky bottom-0 z-20 mt-4 px-1 pt-4 shadow-[0_-8px_20px_rgba(15,23,42,0.08)]"
+          : "mt-6 rounded-2xl border px-4 py-4"
       )}
       style={
         isMobile
@@ -346,7 +401,7 @@ export const PublicOrderPage = () => {
           : undefined
       }
     >
-      <p className="text-lg font-bold text-slate-900">Subtotal: {formatNgn(cartTotal)}</p>
+      <p className="text-lg font-bold text-foreground">Subtotal: {formatNgn(cartTotal)}</p>
       <Button
         type="button"
         size="lg"
@@ -357,7 +412,7 @@ export const PublicOrderPage = () => {
       >
         {primaryActionLabel}
       </Button>
-      {orderId ? <p className="mt-2 text-sm text-slate-500">Order created: #{orderId}. Click Pay Now to continue.</p> : null}
+      {orderId ? <p className="mt-2 text-sm text-muted-foreground">Order created: #{orderId}. Click Pay Now to continue.</p> : null}
     </div>
   );
 
@@ -372,7 +427,24 @@ export const PublicOrderPage = () => {
   );
 
   if (loading) {
-    return <PageLoader message="Loading menu..." />;
+    return (
+      <div className="min-h-screen bg-background">
+        <div className="mx-auto w-full max-w-7xl space-y-4 px-4 py-6">
+          <Skeleton className="h-20 rounded-2xl" />
+          <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_360px]">
+            <div className="space-y-4">
+              <Skeleton className="h-12 rounded-2xl" />
+              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                {Array.from({ length: 6 }).map((_, index) => (
+                  <Skeleton key={index} className="h-48 rounded-2xl" />
+                ))}
+              </div>
+            </div>
+            <Skeleton className="hidden h-[460px] rounded-2xl lg:block" />
+          </div>
+        </div>
+      </div>
+    );
   }
 
   if (!menu) {
@@ -384,19 +456,19 @@ export const PublicOrderPage = () => {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50">
-      <header className="sticky top-0 z-30 border-b border-slate-200 bg-white/90 backdrop-blur">
+    <div className="min-h-screen bg-background">
+      <header className="sticky top-0 z-30 border-b border-border bg-background/95 backdrop-blur">
         <div className="mx-auto w-full max-w-7xl px-4 py-4">
-          <h1 className="text-2xl font-extrabold tracking-tight text-slate-900">{menu.restaurant.name}</h1>
-          <p className="mt-1 text-sm text-slate-500">Order in minutes. Freshly prepared and ready to go.</p>
+          <h1 className="text-2xl font-extrabold tracking-tight text-foreground">{menu.restaurant.name}</h1>
+          <p className="mt-1 text-sm text-muted-foreground">Order in minutes. Freshly prepared and ready to go.</p>
           <div className="no-scrollbar mt-3 flex gap-2 overflow-x-auto pb-1">
             {menu.categories.map((category) => (
               <Button
                 type="button"
                 key={category.id}
                 size="sm"
-                variant={activeCategory?.id === category.id ? "primary" : "secondary"}
-                onClick={() => setActiveCategoryId(category.id)}
+                variant={activeCategoryId === category.id ? "primary" : "secondary"}
+                onClick={() => scrollToCategory(category.id)}
               >
                 {category.name}
               </Button>
@@ -406,58 +478,75 @@ export const PublicOrderPage = () => {
       </header>
 
       <main className="mx-auto grid w-full max-w-7xl gap-4 px-4 py-6 lg:grid-cols-[minmax(0,1fr)_360px]">
-        <section>
-          <Card title={activeCategory?.name ?? "Menu"} subtitle="Select items to add to your cart.">
-            {activeCategory && activeCategory.items.length > 0 ? (
-              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-                {activeCategory.items.map((item) => {
-                  const quantity = cart.find((line) => line.item.id === item.id)?.quantity ?? 0;
-                  return (
-                    <article key={item.id} className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
-                      {item.imageUrl ? (
-                        <img
-                          src={item.imageUrl}
-                          alt={item.name}
-                          className="mb-3 h-28 w-full rounded-xl border border-sky-100 object-cover"
-                        />
-                      ) : (
-                        <div className="mb-3 h-28 rounded-xl border border-sky-100 bg-gradient-to-br from-cyan-50 to-slate-100" />
-                      )}
-                      <div className="space-y-2">
-                        <div className="flex items-start justify-between gap-2">
-                          <h4 className="text-sm font-semibold text-slate-900">{item.name}</h4>
-                          <p className="text-sm font-bold text-brand-700">NGN {Number(item.price).toLocaleString()}</p>
-                        </div>
-                        <p className="text-sm text-slate-500">{item.description || "Freshly made and prepared to order."}</p>
-                      </div>
-                      <div className="mt-3 flex items-center justify-between gap-2">
-                        <div className="inline-flex items-center gap-2">
-                          <Button type="button" size="sm" variant="secondary" disabled={!item.isAvailable} onClick={() => updateCart(item, -1)}>
-                            -
-                          </Button>
-                          <span className="w-4 text-center text-sm font-semibold text-slate-900">{quantity}</span>
-                          <Button type="button" size="sm" disabled={!item.isAvailable} onClick={() => updateCart(item, 1)}>
-                            +
-                          </Button>
-                        </div>
-                        <span className={cn("text-xs font-semibold", item.isAvailable ? "text-success-700" : "text-warning-700")}>
-                          {item.isAvailable ? "Available" : "Unavailable"}
-                        </span>
-                      </div>
-                    </article>
-                  );
-                })}
-              </div>
-            ) : menu.categories.length ? (
-              <EmptyState title="No items in this category" description="Try another category tab." />
-            ) : (
-              <div className="space-y-3">
-                <Skeleton className="h-24" />
-                <Skeleton className="h-24" />
-                <Skeleton className="h-24" />
-              </div>
-            )}
-          </Card>
+        <section className="space-y-6">
+          {menu.categories.length === 0 ? (
+            <Card title="Menu" subtitle="Select items to add to your cart.">
+              <EmptyState title="No menu items yet" description="This restaurant has not published items yet." />
+            </Card>
+          ) : (
+            menu.categories.map((category) => (
+              <Card
+                key={category.id}
+                title={category.name}
+                subtitle="Select items to add to your cart."
+                className={cn(activeCategoryId === category.id ? "ring-2 ring-primary/15" : "")}
+              >
+                <div
+                  ref={(node) => {
+                    categoryRefs.current[category.id] = node;
+                  }}
+                  data-category-id={category.id}
+                  className="space-y-4"
+                >
+                  {category.items.length > 0 ? (
+                    <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                      {category.items.map((item) => {
+                        const quantity = cart.find((line) => line.item.id === item.id)?.quantity ?? 0;
+                        return (
+                          <article key={item.id} className="card-hover group rounded-2xl border border-border bg-card p-3">
+                            <div className="mb-3 overflow-hidden rounded-xl border border-border/70 bg-muted/40">
+                              {item.imageUrl ? (
+                                <img
+                                  src={item.imageUrl}
+                                  alt={item.name}
+                                  className="h-28 w-full object-cover transition-transform duration-300 group-hover:scale-105"
+                                />
+                              ) : (
+                                <div className="h-28 bg-gradient-to-br from-brand-50 via-muted to-accentBlue-50" />
+                              )}
+                            </div>
+                            <div className="space-y-2">
+                              <div className="flex items-start justify-between gap-2">
+                                <h4 className="text-sm font-semibold text-foreground">{item.name}</h4>
+                                <p className="text-sm font-bold text-primary">NGN {Number(item.price).toLocaleString()}</p>
+                              </div>
+                              <p className="text-sm text-muted-foreground">{item.description || "Freshly made and prepared to order."}</p>
+                            </div>
+                            <div className="mt-3 flex items-center justify-between gap-2">
+                              <div className="inline-flex items-center gap-2">
+                                <Button type="button" size="sm" variant="secondary" disabled={!item.isAvailable} onClick={() => updateCart(item, -1)}>
+                                  -
+                                </Button>
+                                <span className="w-5 text-center text-sm font-semibold text-foreground">{quantity}</span>
+                                <Button type="button" size="sm" disabled={!item.isAvailable} onClick={() => updateCart(item, 1)}>
+                                  +
+                                </Button>
+                              </div>
+                              <span className={cn("text-xs font-semibold", item.isAvailable ? "text-success-700" : "text-warning-700")}>
+                                {item.isAvailable ? "Available" : "Unavailable"}
+                              </span>
+                            </div>
+                          </article>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <EmptyState title="No items in this category" description="Try another category tab." />
+                  )}
+                </div>
+              </Card>
+            ))
+          )}
         </section>
 
         <aside className="hidden lg:block lg:sticky lg:top-24 lg:h-fit">{renderCartPanel()}</aside>
@@ -465,10 +554,15 @@ export const PublicOrderPage = () => {
 
       <button
         type="button"
-        className="focus-ring fixed bottom-5 right-4 z-40 rounded-full bg-brand-500 px-4 py-3 text-sm font-semibold text-white shadow-card lg:hidden"
+        className={cn(
+          "focus-ring fixed bottom-5 right-4 z-40 inline-flex items-center gap-2 rounded-full bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground shadow-card lg:hidden",
+          cartCount > 0 ? "animate-pulse-soft" : ""
+        )}
         onClick={() => setCartOpen(true)}
       >
-        Cart ({cartCount}) - {formatNgn(cartTotal)}
+        <ShoppingCart className="h-4 w-4" />
+        Cart ({cartCount})
+        <span className="rounded-full bg-white/20 px-2 py-0.5 text-xs">{formatNgn(cartTotal)}</span>
       </button>
 
       <Drawer open={cartOpen} onClose={() => setCartOpen(false)} title="Checkout">
@@ -485,4 +579,3 @@ export const PublicOrderPage = () => {
     </div>
   );
 };
-

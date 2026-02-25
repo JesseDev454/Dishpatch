@@ -1,6 +1,7 @@
 import { ReactNode, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { BarChart3, LayoutDashboard, LogOut, Menu, UtensilsCrossed } from "lucide-react";
+import logo from "@/assets/Dishpatch-logo-1.png";
 import { AuthUser } from "../types";
 import { Button } from "./ui/Button";
 import {
@@ -66,7 +67,10 @@ export const AdminShell = ({ user, onLogout, title, subtitle, actions, children 
       <div className="grid min-h-screen lg:grid-cols-[264px_minmax(0,1fr)]">
         <aside className="hidden border-r border-border/70 bg-card/80 px-4 py-6 backdrop-blur lg:block">
           <div className="mb-6 px-2">
-            <p className="text-xl font-bold tracking-tight text-foreground">Dishpatch</p>
+            <div className="flex items-center gap-2">
+              <img src={logo} alt="Dishpatch" className="h-8 w-auto" />
+              <p className="text-xl font-bold tracking-tight text-foreground">Dishpatch</p>
+            </div>
             <p className="mt-1 text-xs text-muted-foreground">{user?.restaurant.name}</p>
           </div>
           <SidebarNav />

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ShieldCheck, ShoppingCart } from "lucide-react";
 import { useParams } from "react-router-dom";
+import logo from "@/assets/Dishpatch-logo-1.png";
 import { useToast } from "../context/ToastContext";
 import { publicApi } from "../lib/api";
 import { cn } from "../lib/cn";
@@ -469,6 +470,10 @@ export const PublicOrderPage = () => {
     <div className="min-h-screen bg-background">
       <header className="sticky top-0 z-30 border-b border-border bg-background/95 backdrop-blur">
         <div className="mx-auto w-full max-w-7xl px-4 py-4">
+          <div className="mb-2 flex items-center gap-2">
+            <img src={logo} alt="Dishpatch" className="h-6 w-auto" />
+            <span className="text-sm font-semibold text-foreground">Dishpatch</span>
+          </div>
           <h1 className="text-2xl font-extrabold tracking-tight text-foreground">{menu.restaurant.name}</h1>
           <p className="mt-1 text-sm text-muted-foreground">Order in minutes. Freshly prepared and ready to go.</p>
           <p className="mt-2 inline-flex items-center gap-1 rounded-full bg-primary/15 px-3 py-1 text-xs font-semibold text-brand-100">

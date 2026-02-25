@@ -1,4 +1,5 @@
 import { Link } from "react-router-dom";
+import logo from "@/assets/Dishpatch-logo-1.png";
 import { Separator } from "./ui/Separator";
 
 type AuthShellProps = {
@@ -29,8 +30,11 @@ export const AuthShell = ({ title, subtitle, altText, altLink, altLabel, childre
           </div>
         </aside>
         <div className="space-y-5 p-6 sm:p-10">
-          <div className="space-y-1">
-            <p className="text-2xl font-extrabold tracking-tight text-foreground">Dishpatch</p>
+          <div className="space-y-2">
+            <div className="flex justify-center">
+              <img src={logo} alt="Dishpatch" className="h-10 w-auto" />
+            </div>
+            <p className="text-center text-2xl font-extrabold tracking-tight text-foreground">Dishpatch</p>
             <h2 className="text-2xl font-semibold tracking-tight text-foreground">{title}</h2>
             <p className="text-sm text-muted-foreground">{subtitle}</p>
           </div>

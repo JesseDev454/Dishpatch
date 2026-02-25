@@ -1,4 +1,4 @@
-import { Children, type ReactNode, useEffect, useMemo, useRef, useState } from "react";
+import { Children, type ReactNode, useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { AnimatePresence, motion, useMotionValue, useReducedMotion, useSpring } from "framer-motion";
 import {
@@ -135,7 +135,8 @@ export const LandingPage = () => {
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [demoSlug, setDemoSlug] = useState<string | null>(null);
   const [demoChecked, setDemoChecked] = useState(false);
-  const [heroWordIndex, setHeroWordIndex] = useState(0);
+  const heroHeadline = "Online ordering for restaurants\nfast, secure, and\ndelightful";
+  const [heroTypedLength, setHeroTypedLength] = useState(reducedMotion ? heroHeadline.length : 0);
   const [heroToastVisible, setHeroToastVisible] = useState(true);
   const [simCount, setSimCount] = useState(0);
   const [simSubtotal, setSimSubtotal] = useState(0);
@@ -146,7 +147,9 @@ export const LandingPage = () => {
   const rotateXSmooth = useSpring(rotateX, { stiffness: 80, damping: 18 });
   const rotateYSmooth = useSpring(rotateY, { stiffness: 80, damping: 18 });
 
-  const heroWords = useMemo(() => ["delightful", "real-time", "Paystack-ready", "mobile-first"], []);
+  const typedHero = heroHeadline.slice(0, heroTypedLength);
+  const [heroLineOne = "", heroLineTwo = "", heroLineThree = ""] = typedHero.split("\n");
+  const heroTypingActive = heroTypedLength < heroHeadline.length;
 
   const animatedOrderCount = useAnimatedNumber(simCount);
   const animatedSubtotal = useAnimatedNumber(simSubtotal);
@@ -174,13 +177,22 @@ export const LandingPage = () => {
 
   useEffect(() => {
     if (reducedMotion) {
+      setHeroTypedLength(heroHeadline.length);
       return;
     }
+
+    setHeroTypedLength(0);
+    let currentIndex = 0;
     const interval = window.setInterval(() => {
-      setHeroWordIndex((prev) => (prev + 1) % heroWords.length);
-    }, 2200);
+      currentIndex += 1;
+      setHeroTypedLength(Math.min(currentIndex, heroHeadline.length));
+      if (currentIndex >= heroHeadline.length) {
+        window.clearInterval(interval);
+      }
+    }, 38);
+
     return () => window.clearInterval(interval);
-  }, [heroWords.length, reducedMotion]);
+  }, [heroHeadline, reducedMotion]);
 
   useEffect(() => {
     if (reducedMotion) {
@@ -317,22 +329,14 @@ export const LandingPage = () => {
               Built for Nigerian restaurants
             </Badge>
             <h1 className="text-4xl font-black tracking-tight sm:text-5xl">
-              Online ordering for restaurants
-              <span className="block text-primary">fast, secure, and</span>
-              <span className="inline-flex min-h-[1.3em] min-w-[12ch] items-center text-accent">
-                <AnimatePresence mode="wait">
-                  <motion.span
-                    key={heroWords[heroWordIndex]}
-                    initial={reducedMotion ? undefined : { y: 12, opacity: 0 }}
-                    animate={reducedMotion ? undefined : { y: 0, opacity: 1 }}
-                    exit={reducedMotion ? undefined : { y: -12, opacity: 0 }}
-                    transition={reducedMotion ? undefined : { duration: 0.24 }}
-                  >
-                    {heroWords[heroWordIndex]}
-                  </motion.span>
-                </AnimatePresence>
+              {heroLineOne}
+              <span className="block text-primary">{heroLineTwo}</span>
+              <span className="inline-flex min-h-[1.3em] items-center text-accent">
+                {heroLineThree}
+                {!reducedMotion && heroTypingActive ? (
+                  <span aria-hidden className="ml-1 inline-block h-[1em] w-[2px] animate-pulse rounded-sm bg-accent" />
+                ) : null}
               </span>
-              .
             </h1>
             <p className="max-w-2xl text-base text-muted-foreground sm:text-lg">
               Create a shareable menu link, accept Paystack payments, and manage orders in real time. Dishpatch is built for practical restaurant operations.

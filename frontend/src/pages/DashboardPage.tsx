@@ -1,6 +1,7 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import { Copy, ExternalLink, FolderTree, MessageCircle } from "lucide-react";
+import { Copy, Download, ExternalLink, FolderTree, MessageCircle } from "lucide-react";
+import QRCode from "react-qr-code";
 import { AdminShell } from "../components/AdminShell";
 import { CategoryManager } from "../components/CategoryManager";
 import { ItemManager } from "../components/ItemManager";
@@ -25,6 +26,7 @@ export const DashboardPage = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [view, setView] = useState<"all" | "categories" | "items">("all");
+  const qrContainerRef = useRef<HTMLDivElement | null>(null);
   const restaurantSlug = user?.restaurant.slug ?? "";
   const publicOrderUrl = restaurantSlug ? `https://dishpatch.vercel.app/r/${restaurantSlug}` : "";
   const whatsappShareUrl = publicOrderUrl
@@ -68,6 +70,62 @@ export const DashboardPage = () => {
       showToast("Link copied successfully", "success");
     } catch {
       showToast("Could not copy link. Please copy manually.", "error");
+    }
+  };
+
+  const downloadQr = async () => {
+    if (!publicOrderUrl || !restaurantSlug) {
+      showToast("QR unavailable.", "error");
+      return;
+    }
+
+    const qrSvg = qrContainerRef.current?.querySelector("svg");
+    if (!qrSvg) {
+      showToast("QR unavailable.", "error");
+      return;
+    }
+
+    try {
+      const serializer = new XMLSerializer();
+      const svgText = serializer.serializeToString(qrSvg);
+      const svgBlob = new Blob([svgText], { type: "image/svg+xml;charset=utf-8" });
+      const url = URL.createObjectURL(svgBlob);
+      const image = new Image();
+
+      image.onload = () => {
+        const canvas = document.createElement("canvas");
+        const size = 1024;
+        canvas.width = size;
+        canvas.height = size;
+
+        const context = canvas.getContext("2d");
+        if (!context) {
+          URL.revokeObjectURL(url);
+          showToast("Could not download QR.", "error");
+          return;
+        }
+
+        context.fillStyle = "#ffffff";
+        context.fillRect(0, 0, size, size);
+        context.drawImage(image, 96, 96, size - 192, size - 192);
+        URL.revokeObjectURL(url);
+
+        const pngDataUrl = canvas.toDataURL("image/png");
+        const downloadLink = document.createElement("a");
+        downloadLink.href = pngDataUrl;
+        downloadLink.download = `dishpatch-qr-${restaurantSlug}.png`;
+        downloadLink.click();
+        showToast("QR downloaded", "success");
+      };
+
+      image.onerror = () => {
+        URL.revokeObjectURL(url);
+        showToast("Could not download QR.", "error");
+      };
+
+      image.src = url;
+    } catch {
+      showToast("Could not download QR.", "error");
     }
   };
 
@@ -148,42 +206,59 @@ export const DashboardPage = () => {
             title="Your Public Ordering Link"
             subtitle="Share this link on WhatsApp, Instagram, and with your customers."
           >
-            <div className="rounded-xl border border-border bg-muted/40 px-3 py-2">
-              <p className="break-all font-mono text-sm text-foreground">{publicOrderUrl || "Link unavailable"}</p>
-            </div>
-            <div className="mt-4 flex flex-col gap-2 sm:flex-row">
-              <Button onClick={() => void copyPublicLink()} disabled={!publicOrderUrl}>
-                <Copy className="h-4 w-4" />
-                Copy Link
-              </Button>
+            <div className="grid gap-4 lg:grid-cols-[1fr_auto] lg:items-start">
+              <div>
+                <div className="rounded-xl border border-border bg-muted/40 px-3 py-2">
+                  <p className="break-all font-mono text-sm text-foreground">{publicOrderUrl || "Link unavailable"}</p>
+                </div>
+                <div className="mt-4 flex flex-col gap-2 sm:flex-row">
+                  <Button onClick={() => void copyPublicLink()} disabled={!publicOrderUrl}>
+                    <Copy className="h-4 w-4" />
+                    Copy Link
+                  </Button>
 
-              {publicOrderUrl ? (
-                <Button asChild variant="secondary">
-                  <a href={publicOrderUrl} target="_blank" rel="noreferrer">
-                    <ExternalLink className="h-4 w-4" />
-                    Preview
-                  </a>
-                </Button>
-              ) : (
-                <Button variant="secondary" disabled>
-                  <ExternalLink className="h-4 w-4" />
-                  Preview
-                </Button>
-              )}
+                  {publicOrderUrl ? (
+                    <Button asChild variant="secondary">
+                      <a href={publicOrderUrl} target="_blank" rel="noreferrer">
+                        <ExternalLink className="h-4 w-4" />
+                        Preview
+                      </a>
+                    </Button>
+                  ) : (
+                    <Button variant="secondary" disabled>
+                      <ExternalLink className="h-4 w-4" />
+                      Preview
+                    </Button>
+                  )}
 
-              {whatsappShareUrl ? (
-                <Button asChild variant="secondary" className="border-accent/45 bg-accent/15 text-accentBlue-100 hover:bg-accent/25">
-                  <a href={whatsappShareUrl} target="_blank" rel="noreferrer">
-                    <MessageCircle className="h-4 w-4" />
-                    Share on WhatsApp
-                  </a>
+                  {whatsappShareUrl ? (
+                    <Button asChild variant="secondary" className="border-accent/45 bg-accent/15 text-accentBlue-100 hover:bg-accent/25">
+                      <a href={whatsappShareUrl} target="_blank" rel="noreferrer">
+                        <MessageCircle className="h-4 w-4" />
+                        Share on WhatsApp
+                      </a>
+                    </Button>
+                  ) : (
+                    <Button variant="secondary" className="border-accent/45 bg-accent/15 text-accentBlue-100" disabled>
+                      <MessageCircle className="h-4 w-4" />
+                      Share on WhatsApp
+                    </Button>
+                  )}
+                </div>
+              </div>
+
+              <div className="w-full rounded-2xl border border-border bg-card/70 p-3 lg:w-[240px]">
+                <div className="mx-auto w-fit rounded-xl bg-white p-3" ref={qrContainerRef}>
+                  {publicOrderUrl ? <QRCode value={publicOrderUrl} size={168} /> : <div className="h-[168px] w-[168px] bg-muted" />}
+                </div>
+                <p className="mt-3 text-center text-xs text-muted-foreground">
+                  Customers can scan this QR code to open your menu instantly.
+                </p>
+                <Button className="mt-3 w-full" variant="secondary" onClick={() => void downloadQr()} disabled={!publicOrderUrl}>
+                  <Download className="h-4 w-4" />
+                  Download QR
                 </Button>
-              ) : (
-                <Button variant="secondary" className="border-accent/45 bg-accent/15 text-accentBlue-100" disabled>
-                  <MessageCircle className="h-4 w-4" />
-                  Share on WhatsApp
-                </Button>
-              )}
+              </div>
             </div>
           </Card>
         </motion.div>

@@ -17,22 +17,15 @@ import { AddItemImageUrl1709200000000 } from "../migrations/1709200000000-AddIte
 import { AddAnalyticsOrderIndexes1709300000000 } from "../migrations/1709300000000-AddAnalyticsOrderIndexes";
 import { TransferFirstPivot1709400000000 } from "../migrations/1709400000000-TransferFirstPivot";
 
-const connectionOptions = env.db.databaseUrl
-  ? {
-      url: env.db.databaseUrl,
-      ssl: env.nodeEnv === "production" ? { rejectUnauthorized: false } : undefined
-    }
-  : {
-      host: env.db.host,
-      port: env.db.port,
-      username: env.db.user,
-      password: env.db.password,
-      database: env.db.database
-    };
+const databaseUrl = process.env.DATABASE_URL;
+if (!databaseUrl) {
+  throw new Error("Missing required environment variable: DATABASE_URL.");
+}
 
 export const AppDataSource = new DataSource({
   type: "postgres",
-  ...connectionOptions,
+  url: databaseUrl,
+  ssl: env.nodeEnv === "production" ? { rejectUnauthorized: false } : undefined,
 
   entities: [Restaurant, User, Category, Item, Order, OrderItem, Payment],
   migrations: [

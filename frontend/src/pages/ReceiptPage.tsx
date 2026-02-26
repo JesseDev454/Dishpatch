@@ -7,6 +7,7 @@ import { Badge } from "../components/ui/Badge";
 import { EmptyState } from "../components/ui/EmptyState";
 import { PageLoader } from "../components/ui/PageLoader";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../components/ui/Table";
+import { AnimatePresence, motion, useReducedMotion } from "../components/ui/motion";
 import { publicApi } from "../lib/api";
 
 type ReceiptResponse = {
@@ -38,6 +39,7 @@ type ReceiptResponse = {
 
 export const ReceiptPage = () => {
   const { reference } = useParams();
+  const reducedMotion = useReducedMotion() ?? false;
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [receipt, setReceipt] = useState<ReceiptResponse | null>(null);
@@ -86,7 +88,12 @@ export const ReceiptPage = () => {
         </div>
       </div>
 
-      <Card className="mx-auto w-full max-w-3xl print:rounded-none print:border-0 print:shadow-none">
+      <motion.div
+        initial={reducedMotion ? undefined : { opacity: 0, scale: 0.98, y: 12 }}
+        animate={reducedMotion ? undefined : { opacity: 1, scale: 1, y: 0 }}
+        transition={reducedMotion ? undefined : { duration: 0.28, ease: "easeOut" }}
+      >
+        <Card className="mx-auto w-full max-w-3xl print:rounded-none print:border-0 print:shadow-none">
         <header className="mb-6 border-b border-border pb-4">
           <span className="mb-2 inline-flex items-center gap-1 rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">
             <ReceiptText className="h-3.5 w-3.5" />
@@ -110,7 +117,13 @@ export const ReceiptPage = () => {
           </div>
           <div className="rounded-2xl border border-border bg-muted/45 p-3">
             <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Status</p>
-            <Badge variant="success">PAID</Badge>
+            <motion.div
+              initial={reducedMotion ? undefined : { opacity: 0, scale: 0.94 }}
+              animate={reducedMotion ? undefined : { opacity: 1, scale: 1 }}
+              transition={reducedMotion ? undefined : { delay: 0.12, duration: 0.2, ease: "easeOut" }}
+            >
+              <Badge variant="success">PAID</Badge>
+            </motion.div>
           </div>
         </section>
 
@@ -135,14 +148,22 @@ export const ReceiptPage = () => {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {receipt.items.map((item, index) => (
-                <TableRow key={`${item.nameSnapshot}-${index}`}>
-                  <TableCell>{item.nameSnapshot}</TableCell>
-                  <TableCell>NGN {Number(item.unitPriceSnapshot).toLocaleString()}</TableCell>
-                  <TableCell>{item.quantity}</TableCell>
-                  <TableCell className="font-semibold">NGN {Number(item.lineTotal).toLocaleString()}</TableCell>
-                </TableRow>
-              ))}
+              <AnimatePresence initial={false}>
+                {receipt.items.map((item, index) => (
+                  <motion.tr
+                    key={`${item.nameSnapshot}-${index}`}
+                    initial={reducedMotion ? undefined : { opacity: 0, y: 8 }}
+                    animate={reducedMotion ? undefined : { opacity: 1, y: 0 }}
+                    transition={reducedMotion ? undefined : { delay: index * 0.04, duration: 0.18, ease: "easeOut" }}
+                    className="border-b transition-colors hover:bg-primary/5"
+                  >
+                    <TableCell>{item.nameSnapshot}</TableCell>
+                    <TableCell>NGN {Number(item.unitPriceSnapshot).toLocaleString()}</TableCell>
+                    <TableCell>{item.quantity}</TableCell>
+                    <TableCell className="font-semibold">NGN {Number(item.lineTotal).toLocaleString()}</TableCell>
+                  </motion.tr>
+                ))}
+              </AnimatePresence>
             </TableBody>
           </Table>
         </section>
@@ -155,7 +176,8 @@ export const ReceiptPage = () => {
             Paid at: {receipt.payment.paidAt ? new Date(receipt.payment.paidAt).toLocaleString() : "n/a"}
           </p>
         </footer>
-      </Card>
+        </Card>
+      </motion.div>
     </div>
   );
 };

@@ -15,6 +15,7 @@ import {
 import { Separator } from "./ui/Separator";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "./ui/Sheet";
 import { cn } from "../lib/cn";
+import { motion, useReducedMotion } from "./ui/motion";
 
 type AdminShellProps = {
   user: AuthUser | null;
@@ -61,6 +62,8 @@ const SidebarNav = ({ onNavigate }: { onNavigate?: () => void }) => {
 
 export const AdminShell = ({ user, onLogout, title, subtitle, actions, children }: AdminShellProps) => {
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const location = useLocation();
+  const reducedMotion = useReducedMotion() ?? false;
 
   return (
     <div className="min-h-screen bg-background">
@@ -144,7 +147,16 @@ export const AdminShell = ({ user, onLogout, title, subtitle, actions, children 
             {actions ? <div className="flex flex-wrap items-center gap-2 px-4 pb-3 sm:hidden">{actions}</div> : null}
           </header>
 
-          <main className="flex-1 p-4 sm:p-6">{children}</main>
+          <main className="flex-1 p-4 sm:p-6">
+            <motion.div
+              key={location.pathname}
+              initial={reducedMotion ? undefined : { opacity: 0, y: 6 }}
+              animate={reducedMotion ? undefined : { opacity: 1, y: 0 }}
+              transition={reducedMotion ? undefined : { duration: 0.2, ease: "easeOut" }}
+            >
+              {children}
+            </motion.div>
+          </main>
         </div>
       </div>
     </div>

@@ -7,7 +7,8 @@ import { Button } from "../components/ui/Button";
 import { Card } from "../components/ui/Card";
 import { Badge, OrderStatusBadge } from "../components/ui/Badge";
 import { EmptyState } from "../components/ui/EmptyState";
-import { PageLoader } from "../components/ui/PageLoader";
+import { AnimatePresence, motion, useReducedMotion } from "../components/ui/motion";
+import { Skeleton } from "../components/ui/Skeleton";
 import { useAuth } from "../context/AuthContext";
 import { useToast } from "../context/ToastContext";
 import { getApiErrorMessage } from "../lib/errors";
@@ -60,6 +61,7 @@ const formatTimeAgo = (value: string): string => {
 export const LiveOrdersPage = () => {
   const { user, logout } = useAuth();
   const { showToast } = useToast();
+  const reducedMotion = useReducedMotion() ?? false;
   const socketRef = useRef<Socket | null>(null);
 
   const [orders, setOrders] = useState<OrderSummary[]>([]);
@@ -145,7 +147,7 @@ export const LiveOrdersPage = () => {
           next.delete(orderId);
           return next;
         });
-      }, 2400);
+      }, 1500);
     };
 
     socket.on("order:paid", (order: OrderSummary) => {
@@ -311,11 +313,23 @@ export const LiveOrdersPage = () => {
     return null;
   };
 
-  const renderOrderCard = (order: OrderSummary) => (
-    <article
+  const renderOrderCard = (order: OrderSummary) => {
+    const isFresh = freshOrderIds.has(order.id);
+    return (
+    <motion.article
       key={order.id}
+      layout
+      initial={reducedMotion ? undefined : { opacity: 0, y: 10 }}
+      animate={
+        reducedMotion
+          ? undefined
+          : isFresh
+            ? { opacity: 1, y: 0, scale: [1, 1.01, 1] }
+            : { opacity: 1, y: 0, scale: 1 }
+      }
+      transition={reducedMotion ? undefined : isFresh ? { duration: 1.5, ease: "easeOut" } : { duration: 0.2, ease: "easeOut" }}
       className={`card-hover rounded-2xl border bg-card p-4 ${
-        freshOrderIds.has(order.id) ? "ring-2 ring-primary/30 ring-offset-2 animate-fade-in ring-offset-background" : ""
+        isFresh ? "ring-2 ring-primary/35 ring-offset-2 ring-offset-background" : ""
       }`}
     >
       <div className="mb-2 flex items-start justify-between gap-2">
@@ -325,7 +339,17 @@ export const LiveOrdersPage = () => {
             {new Date(order.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })} | {order.type} | {formatTimeAgo(order.createdAt)}
           </p>
         </div>
-        <OrderStatusBadge status={order.status} />
+        <AnimatePresence mode="wait" initial={false}>
+          <motion.div
+            key={`${order.id}-${order.status}`}
+            initial={reducedMotion ? undefined : { opacity: 0, scale: 0.95 }}
+            animate={reducedMotion ? undefined : { opacity: 1, scale: 1 }}
+            exit={reducedMotion ? undefined : { opacity: 0, scale: 0.95 }}
+            transition={reducedMotion ? undefined : { duration: 0.16, ease: "easeOut" }}
+          >
+            <OrderStatusBadge status={order.status} />
+          </motion.div>
+        </AnimatePresence>
       </div>
       <p className="text-sm text-foreground/80">
         {order.customerName} | {order.customerPhone}
@@ -342,11 +366,24 @@ export const LiveOrdersPage = () => {
         <strong>Total: NGN {Number(order.totalAmount).toLocaleString()}</strong>
       </p>
       {renderActions(order)}
-    </article>
-  );
+    </motion.article>
+    );
+  };
 
   if (loading) {
-    return <PageLoader message="Loading live orders..." />;
+    return (
+      <AdminShell user={user} onLogout={() => void logout()} title="Live Orders" subtitle="Realtime kitchen workflow for your restaurant team.">
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          {Array.from({ length: 6 }).map((_, index) => (
+            <Card key={index}>
+              <Skeleton className="h-4 w-32" />
+              <Skeleton className="mt-2 h-3 w-40" />
+              <Skeleton className="mt-4 h-24 w-full" />
+            </Card>
+          ))}
+        </div>
+      </AdminShell>
+    );
   }
 
   return (
@@ -423,9 +460,15 @@ export const LiveOrdersPage = () => {
         <div className={sections.length > 2 ? "grid gap-4 md:grid-cols-2 xl:grid-cols-3" : "grid gap-4 md:grid-cols-2"}>
           {sections.map((section) => (
             <Card key={section.title} title={section.title}>
-              <div className="space-y-2">
-                {section.orders.length ? section.orders.map(renderOrderCard) : <EmptyState icon={section.icon} title={section.emptyTitle} />}
-              </div>
+              {section.orders.length ? (
+                <motion.div layout className="space-y-2">
+                  <AnimatePresence initial={false}>
+                    {section.orders.map(renderOrderCard)}
+                  </AnimatePresence>
+                </motion.div>
+              ) : (
+                <EmptyState icon={section.icon} title={section.emptyTitle} />
+              )}
             </Card>
           ))}
         </div>

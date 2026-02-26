@@ -6,6 +6,7 @@ import { Badge } from "../components/ui/Badge";
 import { Button } from "../components/ui/Button";
 import { Card } from "../components/ui/Card";
 import { EmptyState } from "../components/ui/EmptyState";
+import { Reveal, RevealStagger, motion, useReducedMotion } from "../components/ui/motion";
 import { Skeleton } from "../components/ui/Skeleton";
 import { useAuth } from "../context/AuthContext";
 import { useToast } from "../context/ToastContext";
@@ -143,6 +144,7 @@ const AnalyticsSkeleton = () => (
 export const DashboardAnalyticsPage = () => {
   const { user, logout } = useAuth();
   const { showToast } = useToast();
+  const reducedMotion = useReducedMotion() ?? false;
 
   const [range, setRange] = useState<AnalyticsRange>("7d");
   const [overview, setOverview] = useState<AnalyticsOverviewResponse | null>(null);
@@ -280,8 +282,13 @@ export const DashboardAnalyticsPage = () => {
       ) : null}
 
       {!loading && !error && overview ? (
-        <div className="space-y-4">
-          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+        <motion.div
+          initial={reducedMotion ? undefined : { opacity: 0 }}
+          animate={reducedMotion ? undefined : { opacity: 1 }}
+          transition={reducedMotion ? undefined : { duration: 0.2, ease: "easeOut" }}
+          className="space-y-4"
+        >
+          <RevealStagger className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
             <KpiCard label="Orders Today" value={overview.kpis.ordersToday} />
             <KpiCard label="Revenue Today" value={formatNgn(overview.kpis.revenueToday)} comparison={revenueComparison ?? undefined} />
             <KpiCard label={`Orders (${periodLabel})`} value={overview.kpis.ordersThisWeek} />
@@ -295,14 +302,14 @@ export const DashboardAnalyticsPage = () => {
                 <Badge variant="muted">Expired: {overview.kpis.expiredOrders}</Badge>
               </div>
             </Card>
-          </div>
+          </RevealStagger>
 
           <div className="flex flex-wrap gap-2">
             {topInsight ? <Badge variant="info">Top item: {topInsight.name}</Badge> : null}
             {bestDayInsight ? <Badge variant="success">Best day: {formatChartDate(bestDayInsight.date)}</Badge> : null}
           </div>
 
-          <div className="grid gap-4 xl:grid-cols-3">
+          <Reveal className="grid gap-4 xl:grid-cols-3">
             <Card className="xl:col-span-2" title="Revenue Trend" subtitle={`${periodLabel} (UTC)`}>
               <RevenueLineChart points={timeseries} />
             </Card>
@@ -326,7 +333,7 @@ export const DashboardAnalyticsPage = () => {
                 </div>
               )}
             </Card>
-          </div>
+          </Reveal>
 
           {noRevenueData ? (
             <EmptyState title="No paid orders yet" description="Create a test order and complete payment to see analytics." />
@@ -340,7 +347,7 @@ export const DashboardAnalyticsPage = () => {
               </Link>
             </div>
           ) : null}
-        </div>
+        </motion.div>
       ) : null}
     </AdminShell>
   );

@@ -9,6 +9,7 @@ import { Card } from "./ui/Card";
 import { EmptyState } from "./ui/EmptyState";
 import { InputField } from "./ui/InputField";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "./ui/Dialog";
+import { AnimatePresence, motion, useReducedMotion } from "./ui/motion";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -34,6 +35,7 @@ const initialForm: CategoryFormState = {
 
 export const CategoryManager = ({ categories, onChange }: CategoryManagerProps) => {
   const { showToast } = useToast();
+  const reducedMotion = useReducedMotion() ?? false;
   const [error, setError] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
@@ -193,31 +195,41 @@ export const CategoryManager = ({ categories, onChange }: CategoryManagerProps) 
             </TableRow>
           </TableHeader>
           <TableBody>
-            {categories.map((category) => (
-              <TableRow key={category.id}>
-                <TableCell className="font-medium">{category.name}</TableCell>
-                <TableCell>{category.sortOrder}</TableCell>
-                <TableCell className="text-right">
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="sm">
-                        <MoreHorizontal className="h-4 w-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={() => openEditDialog(category)}>Edit</DropdownMenuItem>
-                      <DropdownMenuItem
-                        onClick={() => void deleteCategory(category.id)}
-                        disabled={deletingIds.has(category.id)}
-                        className="text-destructive focus:text-destructive"
-                      >
-                        Delete
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </TableCell>
-              </TableRow>
-            ))}
+            <AnimatePresence initial={false}>
+              {categories.map((category) => (
+                <motion.tr
+                  key={category.id}
+                  layout
+                  initial={reducedMotion ? undefined : { opacity: 0, y: 8 }}
+                  animate={reducedMotion ? undefined : { opacity: 1, y: 0 }}
+                  exit={reducedMotion ? undefined : { opacity: 0, y: -6 }}
+                  transition={reducedMotion ? undefined : { duration: 0.2, ease: "easeOut" }}
+                  className="border-b transition-colors hover:bg-primary/5"
+                >
+                  <TableCell className="font-medium">{category.name}</TableCell>
+                  <TableCell>{category.sortOrder}</TableCell>
+                  <TableCell className="text-right">
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="sm">
+                          <MoreHorizontal className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={() => openEditDialog(category)}>Edit</DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={() => void deleteCategory(category.id)}
+                          disabled={deletingIds.has(category.id)}
+                          className="text-destructive focus:text-destructive"
+                        >
+                          Delete
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </TableCell>
+                </motion.tr>
+              ))}
+            </AnimatePresence>
           </TableBody>
         </Table>
       )}

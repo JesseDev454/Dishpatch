@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ShieldCheck, ShoppingCart } from "lucide-react";
 import { useParams } from "react-router-dom";
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import logo from "@/assets/Dishpatch-logo-1.png";
 import { useToast } from "../context/ToastContext";
 import { publicApi } from "../lib/api";
@@ -10,6 +11,7 @@ import { Card } from "../components/ui/Card";
 import { Drawer } from "../components/ui/Drawer";
 import { EmptyState } from "../components/ui/EmptyState";
 import { InputField } from "../components/ui/InputField";
+import { Reveal, RevealStagger } from "../components/ui/motion";
 import { Skeleton } from "../components/ui/Skeleton";
 
 type PublicMenuItem = {
@@ -55,6 +57,7 @@ const formatNgn = (value: number): string => `NGN ${ngnNumberFormatter.format(va
 export const PublicOrderPage = () => {
   const { slug } = useParams();
   const { showToast } = useToast();
+  const reducedMotion = useReducedMotion() ?? false;
   const categoryRefs = useRef<Record<number, HTMLDivElement | null>>({});
 
   const [menu, setMenu] = useState<MenuResponse | null>(null);
@@ -365,30 +368,57 @@ export const PublicOrderPage = () => {
         {cart.length === 0 ? (
           <EmptyState title="Cart is empty" description="Add menu items to continue." />
         ) : (
-          cart.map((line) => (
-            <div key={line.item.id} className="rounded-2xl border border-border bg-card p-3">
-              <div className="flex items-center justify-between gap-2">
-                <div className="min-w-0">
-                  <p className="truncate font-semibold text-foreground">{line.item.name}</p>
-                  <p className="text-sm text-muted-foreground">
-                    {line.quantity} x {formatNgn(Number(line.item.price))}
-                  </p>
+          <AnimatePresence initial={false}>
+            {cart.map((line) => (
+              <motion.div
+                key={line.item.id}
+                layout
+                initial={reducedMotion ? undefined : { opacity: 0, y: 8 }}
+                animate={reducedMotion ? undefined : { opacity: 1, y: 0 }}
+                exit={reducedMotion ? undefined : { opacity: 0, y: -6 }}
+                transition={reducedMotion ? undefined : { duration: 0.2, ease: "easeOut" }}
+              >
+                <div className="rounded-2xl border border-border bg-card p-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="truncate font-semibold text-foreground">{line.item.name}</p>
+                      <p className="text-sm text-muted-foreground">
+                        {line.quantity} x {formatNgn(Number(line.item.price))}
+                      </p>
+                    </div>
+                    <div className="inline-flex items-center gap-2">
+                      <Button type="button" variant="secondary" size="sm" onClick={() => updateCart(line.item, -1)}>
+                        -
+                      </Button>
+                      <span className="w-4 text-center text-sm font-semibold text-foreground">{line.quantity}</span>
+                      <Button type="button" size="sm" onClick={() => updateCart(line.item, 1)}>
+                        +
+                      </Button>
+                    </div>
+                  </div>
                 </div>
-                <div className="inline-flex items-center gap-2">
-                  <Button type="button" variant="secondary" size="sm" onClick={() => updateCart(line.item, -1)}>
-                    -
-                  </Button>
-                  <span className="w-4 text-center text-sm font-semibold text-foreground">{line.quantity}</span>
-                  <Button type="button" size="sm" onClick={() => updateCart(line.item, 1)}>
-                    +
-                  </Button>
-                </div>
-              </div>
-            </div>
-          ))
+              </motion.div>
+            ))}
+          </AnimatePresence>
         )}
       </div>
     </div>
+  );
+
+  const renderCheckoutSuccess = () => (
+    <AnimatePresence>
+      {orderId ? (
+        <motion.div
+          initial={reducedMotion ? undefined : { opacity: 0, scale: 0.98, y: 6 }}
+          animate={reducedMotion ? undefined : { opacity: 1, scale: 1, y: 0 }}
+          exit={reducedMotion ? undefined : { opacity: 0, scale: 0.98, y: -6 }}
+          transition={reducedMotion ? undefined : { duration: 0.2, ease: "easeOut" }}
+          className="mt-2 rounded-xl border border-primary/30 bg-primary/10 px-3 py-2 text-sm text-primary"
+        >
+          Order created: #{orderId}. Click Pay Now to continue.
+        </motion.div>
+      ) : null}
+    </AnimatePresence>
   );
 
   const renderCheckoutFooter = (isMobile = false) => (
@@ -418,15 +448,15 @@ export const PublicOrderPage = () => {
       >
         {primaryActionLabel}
       </Button>
-      {orderId ? <p className="mt-2 text-sm text-muted-foreground">Order created: #{orderId}. Click Pay Now to continue.</p> : null}
+      {renderCheckoutSuccess()}
     </div>
   );
 
   const renderCartPanel = () => (
     <Card title="Checkout" subtitle="Customer details and order summary">
       <div className="space-y-6">
-        {renderCheckoutForm()}
-        {renderCartItemsSection()}
+        <Reveal>{renderCheckoutForm()}</Reveal>
+        <Reveal delay={0.06}>{renderCartItemsSection()}</Reveal>
       </div>
       {renderCheckoutFooter()}
     </Card>
@@ -503,73 +533,91 @@ export const PublicOrderPage = () => {
               <EmptyState title="No menu items yet" description="This restaurant has not published items yet." />
             </Card>
           ) : (
-            menu.categories.map((category) => (
-              <Card
-                key={category.id}
-                title={category.name}
-                subtitle="Select items to add to your cart."
-                className={cn(activeCategoryId === category.id ? "ring-2 ring-primary/15" : "")}
-              >
-                <div
-                  ref={(node) => {
-                    categoryRefs.current[category.id] = node;
-                  }}
-                  data-category-id={category.id}
-                  className="space-y-4"
+            menu.categories.map((category, categoryIndex) => (
+              <Reveal key={category.id} delay={categoryIndex * 0.05}>
+                <Card
+                  title={category.name}
+                  subtitle="Select items to add to your cart."
+                  className={cn(activeCategoryId === category.id ? "ring-2 ring-primary/15" : "")}
                 >
-                  {category.items.length > 0 ? (
-                    <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-                      {category.items.map((item) => {
-                        const quantity = cart.find((line) => line.item.id === item.id)?.quantity ?? 0;
-                        return (
-                          <article key={item.id} className="card-hover group rounded-2xl border border-border bg-card p-3">
-                            <div className="mb-3 overflow-hidden rounded-xl border border-border/70 bg-muted/40">
-                              {item.imageUrl ? (
-                                <img
-                                  src={item.imageUrl}
-                                  alt={item.name}
-                                  className="h-36 w-full object-cover transition-transform duration-300 group-hover:scale-105"
-                                />
-                              ) : (
-                                <div className="h-36 bg-gradient-to-br from-brand-500/25 via-muted to-accentBlue-500/20" />
-                              )}
-                            </div>
-                            <div className="space-y-2">
-                              <div className="flex items-start justify-between gap-2">
-                                <h4 className="text-sm font-semibold text-foreground">{item.name}</h4>
-                                <p className="text-sm font-bold text-primary">NGN {Number(item.price).toLocaleString()}</p>
+                  <div
+                    ref={(node) => {
+                      categoryRefs.current[category.id] = node;
+                    }}
+                    data-category-id={category.id}
+                    className="space-y-4"
+                  >
+                    {category.items.length > 0 ? (
+                      <RevealStagger className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3" childClassName="h-full">
+                        {category.items.map((item) => {
+                          const quantity = cart.find((line) => line.item.id === item.id)?.quantity ?? 0;
+                          return (
+                            <article key={item.id} className="card-hover group rounded-2xl border border-border bg-card p-3">
+                              <div className="mb-3 overflow-hidden rounded-xl border border-border/70 bg-muted/40">
+                                {item.imageUrl ? (
+                                  <img
+                                    src={item.imageUrl}
+                                    alt={item.name}
+                                    className="h-36 w-full object-cover transition-transform duration-300 group-hover:scale-105"
+                                  />
+                                ) : (
+                                  <div className="h-36 bg-gradient-to-br from-brand-500/25 via-muted to-accentBlue-500/20" />
+                                )}
                               </div>
-                              <p className="text-sm text-muted-foreground">{item.description || "Freshly made and prepared to order."}</p>
-                            </div>
-                            <div className="mt-3 flex items-center justify-between gap-2">
-                              {quantity > 0 ? (
-                                <div className="inline-flex items-center gap-2">
-                                  <Button type="button" size="sm" variant="secondary" disabled={!item.isAvailable} onClick={() => updateCart(item, -1)}>
-                                    -
-                                  </Button>
-                                  <span className="w-5 text-center text-sm font-semibold text-foreground">{quantity}</span>
-                                  <Button type="button" size="sm" disabled={!item.isAvailable} onClick={() => updateCart(item, 1)}>
-                                    +
-                                  </Button>
+                              <div className="space-y-2">
+                                <div className="flex items-start justify-between gap-2">
+                                  <h4 className="text-sm font-semibold text-foreground">{item.name}</h4>
+                                  <p className="text-sm font-bold text-primary">NGN {Number(item.price).toLocaleString()}</p>
                                 </div>
-                              ) : (
-                                <Button type="button" size="sm" disabled={!item.isAvailable} onClick={() => updateCart(item, 1)}>
-                                  Add
-                                </Button>
-                              )}
-                              <span className={cn("text-xs font-semibold", item.isAvailable ? "text-success-700" : "text-warning-700")}>
-                                {item.isAvailable ? "Available" : "Unavailable"}
-                              </span>
-                            </div>
-                          </article>
-                        );
-                      })}
-                    </div>
-                  ) : (
-                    <EmptyState title="No items in this category" description="Try another category tab." />
-                  )}
-                </div>
-              </Card>
+                                <p className="text-sm text-muted-foreground">{item.description || "Freshly made and prepared to order."}</p>
+                              </div>
+                              <div className="mt-3 flex items-center justify-between gap-2">
+                                <AnimatePresence mode="wait" initial={false}>
+                                  {quantity > 0 ? (
+                                    <motion.div
+                                      key={`stepper-${item.id}`}
+                                      initial={reducedMotion ? undefined : { opacity: 0, y: 6 }}
+                                      animate={reducedMotion ? undefined : { opacity: 1, y: 0 }}
+                                      exit={reducedMotion ? undefined : { opacity: 0, y: -4 }}
+                                      transition={reducedMotion ? undefined : { duration: 0.18, ease: "easeOut" }}
+                                      className="inline-flex items-center gap-2"
+                                    >
+                                      <Button type="button" size="sm" variant="secondary" disabled={!item.isAvailable} onClick={() => updateCart(item, -1)}>
+                                        -
+                                      </Button>
+                                      <span className="w-5 text-center text-sm font-semibold text-foreground">{quantity}</span>
+                                      <Button type="button" size="sm" disabled={!item.isAvailable} onClick={() => updateCart(item, 1)}>
+                                        +
+                                      </Button>
+                                    </motion.div>
+                                  ) : (
+                                    <motion.div
+                                      key={`add-${item.id}`}
+                                      initial={reducedMotion ? undefined : { opacity: 0, y: 6 }}
+                                      animate={reducedMotion ? undefined : { opacity: 1, y: 0 }}
+                                      exit={reducedMotion ? undefined : { opacity: 0, y: -4 }}
+                                      transition={reducedMotion ? undefined : { duration: 0.18, ease: "easeOut" }}
+                                    >
+                                      <Button type="button" size="sm" disabled={!item.isAvailable} onClick={() => updateCart(item, 1)}>
+                                        Add
+                                      </Button>
+                                    </motion.div>
+                                  )}
+                                </AnimatePresence>
+                                <span className={cn("text-xs font-semibold", item.isAvailable ? "text-success-700" : "text-warning-700")}>
+                                  {item.isAvailable ? "Available" : "Unavailable"}
+                                </span>
+                              </div>
+                            </article>
+                          );
+                        })}
+                      </RevealStagger>
+                    ) : (
+                      <EmptyState title="No items in this category" description="Try another category tab." />
+                    )}
+                  </div>
+                </Card>
+              </Reveal>
             ))
           )}
         </section>
@@ -586,20 +634,35 @@ export const PublicOrderPage = () => {
         onClick={() => setCartOpen(true)}
       >
         <ShoppingCart className="h-4 w-4" />
-        Cart ({cartCount})
+        Cart (
+        <motion.span
+          key={cartCount}
+          initial={reducedMotion ? undefined : { scale: 1 }}
+          animate={reducedMotion ? undefined : { scale: [1, 1.22, 1] }}
+          transition={reducedMotion ? undefined : { duration: 0.28, ease: "easeOut" }}
+          className="inline-block"
+        >
+          {cartCount}
+        </motion.span>
+        )
         <span className="rounded-full bg-white/20 px-2 py-0.5 text-xs">{formatNgn(cartTotal)}</span>
       </button>
 
       <Drawer open={cartOpen} onClose={() => setCartOpen(false)} title="Checkout">
-        <div className="flex h-full flex-col overflow-hidden">
+        <motion.div
+          initial={reducedMotion ? undefined : { opacity: 0, y: 8 }}
+          animate={reducedMotion ? undefined : { opacity: 1, y: 0 }}
+          transition={reducedMotion ? undefined : { duration: 0.22, ease: "easeOut" }}
+          className="flex h-full flex-col overflow-hidden"
+        >
           <div className="min-h-0 flex-1 overflow-y-auto pb-2">
             <div className="space-y-6">
-              {renderCheckoutForm()}
-              {renderCartItemsSection(true)}
+              <Reveal>{renderCheckoutForm()}</Reveal>
+              <Reveal delay={0.06}>{renderCartItemsSection(true)}</Reveal>
             </div>
           </div>
           {renderCheckoutFooter(true)}
-        </div>
+        </motion.div>
       </Drawer>
     </div>
   );

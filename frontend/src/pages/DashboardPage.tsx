@@ -7,7 +7,8 @@ import { ItemManager } from "../components/ItemManager";
 import { Button } from "../components/ui/Button";
 import { Card } from "../components/ui/Card";
 import { EmptyState } from "../components/ui/EmptyState";
-import { PageLoader } from "../components/ui/PageLoader";
+import { motion, Reveal, RevealStagger, useReducedMotion } from "../components/ui/motion";
+import { Skeleton } from "../components/ui/Skeleton";
 import { Tabs, TabsList, TabsTrigger } from "../components/ui/Tabs";
 import { useAuth } from "../context/AuthContext";
 import { useToast } from "../context/ToastContext";
@@ -18,6 +19,7 @@ import { Category, Item } from "../types";
 export const DashboardPage = () => {
   const { user, logout } = useAuth();
   const { showToast } = useToast();
+  const reducedMotion = useReducedMotion() ?? false;
   const [categories, setCategories] = useState<Category[]>([]);
   const [items, setItems] = useState<Item[]>([]);
   const [loading, setLoading] = useState(true);
@@ -79,7 +81,17 @@ export const DashboardPage = () => {
   }, [logout, showToast]);
 
   if (loading) {
-    return <PageLoader message="Loading dashboard..." />;
+    return (
+      <AdminShell user={user} onLogout={() => void logout()} title="Menu Dashboard" subtitle="Manage categories and items for your restaurant menu.">
+        <div className="space-y-4">
+          <div className="grid gap-4 md:grid-cols-2">
+            <Card><Skeleton className="h-4 w-28" /><Skeleton className="mt-3 h-8 w-20" /></Card>
+            <Card><Skeleton className="h-4 w-20" /><Skeleton className="mt-3 h-8 w-20" /></Card>
+          </div>
+          <Card><Skeleton className="h-10 w-64" /><Skeleton className="mt-4 h-80 w-full" /></Card>
+        </div>
+      </AdminShell>
+    );
   }
 
   return (
@@ -102,56 +114,64 @@ export const DashboardPage = () => {
         </>
       }
     >
-      <div className="grid gap-4 md:grid-cols-2">
-        <Card title="Categories" subtitle="Total categories currently in your menu">
-          <p className="text-2xl font-bold text-foreground">{categories.length}</p>
-        </Card>
-        <Card title="Items" subtitle="Menu items available for ordering">
-          <p className="text-2xl font-bold text-foreground">{items.length}</p>
-        </Card>
-      </div>
+      <motion.div
+        initial={reducedMotion ? undefined : { opacity: 0 }}
+        animate={reducedMotion ? undefined : { opacity: 1 }}
+        transition={reducedMotion ? undefined : { duration: 0.18, ease: "easeOut" }}
+      >
+        <RevealStagger className="grid gap-4 md:grid-cols-2">
+          <Card title="Categories" subtitle="Total categories currently in your menu">
+            <p className="text-2xl font-bold text-foreground">{categories.length}</p>
+          </Card>
+          <Card title="Items" subtitle="Menu items available for ordering">
+            <p className="text-2xl font-bold text-foreground">{items.length}</p>
+          </Card>
+        </RevealStagger>
 
-      {error ? (
-        <div className="mt-4 rounded-2xl border border-danger-500/40 bg-danger-500/15 px-4 py-3 text-sm font-medium text-danger-100">
-          <p>{error}</p>
-          <Button className="mt-3" size="sm" variant="secondary" onClick={() => void retryLoad()}>
-            Retry
-          </Button>
+        {error ? (
+          <Reveal className="mt-4">
+            <div className="rounded-2xl border border-danger-500/40 bg-danger-500/15 px-4 py-3 text-sm font-medium text-danger-100">
+              <p>{error}</p>
+              <Button className="mt-3" size="sm" variant="secondary" onClick={() => void retryLoad()}>
+                Retry
+              </Button>
+            </div>
+          </Reveal>
+        ) : null}
+
+        <Tabs value={view} className="mt-5" onValueChange={(value) => setView(value as typeof view)}>
+          <TabsList>
+            <TabsTrigger value="all">All</TabsTrigger>
+            <TabsTrigger value="categories">Categories</TabsTrigger>
+            <TabsTrigger value="items">Items</TabsTrigger>
+          </TabsList>
+        </Tabs>
+
+        <div className="mt-5 grid gap-4 xl:grid-cols-2">
+          {(view === "all" || view === "categories") && (
+            <CategoryManager categories={categories} onChange={refreshAll} />
+          )}
+          {(view === "all" || view === "items") && <ItemManager items={items} categories={categories} onChange={refreshAll} />}
         </div>
-      ) : null}
-
-      <Tabs value={view} className="mt-5" onValueChange={(value) => setView(value as typeof view)}>
-        <TabsList>
-          <TabsTrigger value="all">All</TabsTrigger>
-          <TabsTrigger value="categories">Categories</TabsTrigger>
-          <TabsTrigger value="items">Items</TabsTrigger>
-        </TabsList>
-      </Tabs>
-
-      <div className="mt-5 grid gap-4 xl:grid-cols-2">
-        {(view === "all" || view === "categories") && (
-          <CategoryManager categories={categories} onChange={refreshAll} />
-        )}
-        {(view === "all" || view === "items") && <ItemManager items={items} categories={categories} onChange={refreshAll} />}
-      </div>
-      {view === "all" && categories.length === 0 && items.length === 0 ? (
-        <div className="mt-4">
-          <EmptyState
-            icon={FolderTree}
-            title="No menu data yet"
-            description="Add categories and items to get your storefront ready."
-            action={
-              <div className="inline-flex items-center gap-2">
-                <span className="rounded-full border border-border bg-muted px-3 py-1 text-xs font-medium text-muted-foreground">
-                  Tip
-                </span>
-                <span className="text-xs text-muted-foreground">Start with categories, then add items.</span>
-              </div>
-            }
-            className="md:py-10"
-          />
-        </div>
-      ) : null}
+        {view === "all" && categories.length === 0 && items.length === 0 ? (
+          <Reveal className="mt-4">
+            <EmptyState
+              icon={FolderTree}
+              title="No menu data yet"
+              description="Add categories and items to get your storefront ready."
+              action={
+                <div className="inline-flex items-center gap-2">
+                  <span className="rounded-full border border-border bg-muted px-3 py-1 text-xs font-medium text-muted-foreground">
+                    Tip
+                  </span>
+                  <span className="text-xs text-muted-foreground">Start with categories, then add items.</span>
+                </div>
+              }
+              className="md:py-10"
+            />
+          </Reveal>
+        ) : null}
+      </motion.div>
     </AdminShell>
   );
 };

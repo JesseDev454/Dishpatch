@@ -1,4 +1,4 @@
-import { Children, type ReactNode, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { AnimatePresence, motion, useMotionValue, useReducedMotion, useSpring } from "framer-motion";
 import {
@@ -22,6 +22,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "..
 import { Badge } from "../components/ui/Badge";
 import { Button } from "../components/ui/Button";
 import { Card } from "../components/ui/Card";
+import { Reveal, RevealStagger } from "../components/ui/motion";
 
 const navItems = [
   { id: "features", label: "Features" },
@@ -658,95 +659,6 @@ export const LandingPage = () => {
         </section>
       </main>
     </div>
-  );
-};
-
-const Reveal = ({
-  children,
-  className,
-  delay = 0
-}: {
-  children: ReactNode;
-  className?: string;
-  delay?: number;
-}) => {
-  const reducedMotion = useReducedMotion() ?? false;
-
-  if (reducedMotion) {
-    return <div className={className}>{children}</div>;
-  }
-
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 18, scale: 0.98 }}
-      whileInView={{ opacity: 1, y: 0, scale: 1 }}
-      viewport={{ once: true, amount: 0.25 }}
-      transition={{ duration: 0.5, ease: "easeOut", delay }}
-      className={className}
-    >
-      {children}
-    </motion.div>
-  );
-};
-
-const RevealStagger = ({
-  children,
-  className,
-  childClassName,
-  stagger = 0.1,
-  delayChildren = 0
-}: {
-  children: ReactNode;
-  className?: string;
-  childClassName?: string;
-  stagger?: number;
-  delayChildren?: number;
-}) => {
-  const reducedMotion = useReducedMotion() ?? false;
-
-  if (reducedMotion) {
-    return <div className={className}>{children}</div>;
-  }
-
-  const nodes = Children.toArray(children);
-
-  return (
-    <motion.div
-      initial="hidden"
-      whileInView="show"
-      viewport={{ once: true, amount: 0.25 }}
-      variants={{
-        hidden: {},
-        show: {
-          transition: {
-            staggerChildren: stagger,
-            delayChildren
-          }
-        }
-      }}
-      className={className}
-    >
-      {nodes.map((child, index) => (
-        <motion.div
-          key={(typeof child === "object" && child && "key" in child && child.key) ? String(child.key) : `reveal-${index}`}
-          variants={{
-            hidden: { opacity: 0, y: 18, scale: 0.98 },
-            show: {
-              opacity: 1,
-              y: 0,
-              scale: 1,
-              transition: {
-                duration: 0.5,
-                ease: "easeOut"
-              }
-            }
-          }}
-          className={childClassName}
-        >
-          {child}
-        </motion.div>
-      ))}
-    </motion.div>
   );
 };
 

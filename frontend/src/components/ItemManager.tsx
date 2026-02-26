@@ -19,6 +19,7 @@ import { EmptyState } from "./ui/EmptyState";
 import { InputField } from "./ui/InputField";
 import { SelectField } from "./ui/SelectField";
 import { Switch } from "./ui/Switch";
+import { AnimatePresence, motion, useReducedMotion } from "./ui/motion";
 
 type ItemManagerProps = {
   items: Item[];
@@ -59,6 +60,7 @@ const validateImageFile = (file: File): string | null => {
 
 export const ItemManager = ({ items, categories, onChange }: ItemManagerProps) => {
   const { showToast } = useToast();
+  const reducedMotion = useReducedMotion() ?? false;
   const [form, setForm] = useState<ItemFormState>(emptyItemForm);
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [error, setError] = useState<string | null>(null);
@@ -460,70 +462,80 @@ export const ItemManager = ({ items, categories, onChange }: ItemManagerProps) =
         />
       ) : (
         <div className="space-y-3">
-          {visibleItems.map((item) => (
-            <article key={item.id} className="card-hover rounded-2xl border bg-card p-4">
-              <div className="flex items-start gap-3">
-                {item.imageUrl ? (
-                  <img src={item.imageUrl} alt={item.name} className="h-12 w-12 rounded-lg border object-cover" />
-                ) : (
-                  <div className="flex h-12 w-12 items-center justify-center rounded-lg border border-dashed text-[10px] text-muted-foreground">
-                    No image
-                  </div>
-                )}
+          <AnimatePresence initial={false}>
+            {visibleItems.map((item) => (
+              <motion.article
+                key={item.id}
+                layout
+                initial={reducedMotion ? undefined : { opacity: 0, y: 8 }}
+                animate={reducedMotion ? undefined : { opacity: 1, y: 0 }}
+                exit={reducedMotion ? undefined : { opacity: 0, y: -6 }}
+                transition={reducedMotion ? undefined : { duration: 0.2, ease: "easeOut" }}
+                className="card-hover rounded-2xl border bg-card p-4"
+              >
+                <div className="flex items-start gap-3">
+                  {item.imageUrl ? (
+                    <img src={item.imageUrl} alt={item.name} className="h-12 w-12 rounded-lg border object-cover" />
+                  ) : (
+                    <div className="flex h-12 w-12 items-center justify-center rounded-lg border border-dashed text-[10px] text-muted-foreground">
+                      No image
+                    </div>
+                  )}
 
-                <div className="min-w-0 flex-1 space-y-2">
-                  <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between sm:gap-3">
-                    <h4 className="min-w-0 break-words text-sm font-semibold leading-tight text-foreground">{item.name}</h4>
-                    <p className="shrink-0 whitespace-nowrap text-sm font-semibold tabular-nums text-primary">
-                      NGN {Number(item.price).toLocaleString()}
-                    </p>
-                  </div>
-
-                  <p className="break-words text-sm leading-snug text-muted-foreground [display:-webkit-box] [-webkit-box-orient:vertical] [-webkit-line-clamp:2] overflow-hidden">
-                    {item.description || "No description"}
-                  </p>
-
-                  <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
-                    <div className="flex items-center gap-2">
-                      <Switch
-                        checked={item.isAvailable}
-                        disabled={togglingIds.has(item.id)}
-                        onCheckedChange={() => void toggleAvailability(item)}
-                      />
-                      <Badge variant={item.isAvailable ? "success" : "warning"}>
-                        {item.isAvailable ? "Available" : "Unavailable"}
-                      </Badge>
+                  <div className="min-w-0 flex-1 space-y-2">
+                    <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between sm:gap-3">
+                      <h4 className="min-w-0 break-words text-sm font-semibold leading-tight text-foreground">{item.name}</h4>
+                      <p className="shrink-0 whitespace-nowrap text-sm font-semibold tabular-nums text-primary">
+                        NGN {Number(item.price).toLocaleString()}
+                      </p>
                     </div>
 
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="sm">
-                          <MoreHorizontal className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => startEdit(item)}>Edit</DropdownMenuItem>
-                        <DropdownMenuItem
-                          onClick={() => void removeImage(item.id)}
-                          disabled={!item.imageUrl || removingImageIds.has(item.id)}
-                        >
-                          Remove image
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          className="text-destructive focus:text-destructive"
-                          disabled={deletingIds.has(item.id)}
-                          onClick={() => void deleteItem(item.id)}
-                        >
-                          <Trash2 className="mr-2 h-4 w-4" />
-                          Delete
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
+                    <p className="break-words text-sm leading-snug text-muted-foreground [display:-webkit-box] [-webkit-box-orient:vertical] [-webkit-line-clamp:2] overflow-hidden">
+                      {item.description || "No description"}
+                    </p>
+
+                    <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
+                      <div className="flex items-center gap-2">
+                        <Switch
+                          checked={item.isAvailable}
+                          disabled={togglingIds.has(item.id)}
+                          onCheckedChange={() => void toggleAvailability(item)}
+                        />
+                        <Badge variant={item.isAvailable ? "success" : "warning"}>
+                          {item.isAvailable ? "Available" : "Unavailable"}
+                        </Badge>
+                      </div>
+
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="sm">
+                            <MoreHorizontal className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => startEdit(item)}>Edit</DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={() => void removeImage(item.id)}
+                            disabled={!item.imageUrl || removingImageIds.has(item.id)}
+                          >
+                            Remove image
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            className="text-destructive focus:text-destructive"
+                            disabled={deletingIds.has(item.id)}
+                            onClick={() => void deleteItem(item.id)}
+                          >
+                            <Trash2 className="mr-2 h-4 w-4" />
+                            Delete
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
                   </div>
                 </div>
-              </div>
-            </article>
-          ))}
+              </motion.article>
+            ))}
+          </AnimatePresence>
         </div>
       )}
 

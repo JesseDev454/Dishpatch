@@ -9,6 +9,7 @@ export type OrderSummary = {
   customerName: string;
   customerPhone: string;
   deliveryAddress: string | null;
+  customerMarkedPaidAt: Date | null;
   totalAmount: string;
   createdAt: Date;
   updatedAt: Date;
@@ -30,6 +31,7 @@ export const toOrderSummary = (order: Order & { orderItems?: OrderItem[] }): Ord
   customerName: order.customerName,
   customerPhone: order.customerPhone,
   deliveryAddress: order.deliveryAddress,
+  customerMarkedPaidAt: order.customerMarkedPaidAt,
   totalAmount: order.totalAmount,
   createdAt: order.createdAt,
   updatedAt: order.updatedAt,

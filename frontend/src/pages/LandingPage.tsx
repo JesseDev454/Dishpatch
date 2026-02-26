@@ -32,7 +32,13 @@ const navItems = [
   { id: "faq", label: "FAQ" }
 ];
 
-const trustChips = ["Paystack payments", "Delivery + Pickup", "Real-time orders", "Receipts + Email", "Multi-tenant SaaS"];
+const trustChips = [
+  "Bank transfer payments",
+  "Delivery + Pickup",
+  "Real-time orders",
+  "Manual confirmation",
+  "QR code ordering"
+];
 
 const features = [
   {
@@ -42,8 +48,8 @@ const features = [
   },
   {
     icon: CreditCard,
-    title: "Paystack checkout",
-    description: "Secure payment initialization, verification, and webhook handling built in."
+    title: "Accept bank transfers easily",
+    description: "Customers transfer directly to your account and your team confirms from the dashboard."
   },
   {
     icon: Wifi,
@@ -52,18 +58,18 @@ const features = [
   },
   {
     icon: MailCheck,
-    title: "Receipts + confirmations",
-    description: "Automatic receipt flow for customers with printable pages and email delivery."
+    title: "No fintech setup required",
+    description: "Start collecting online orders without gateway onboarding or complex integration."
   },
   {
     icon: Smartphone,
-    title: "Delivery & pickup support",
-    description: "Collect address only when needed and keep pickup checkout friction-free."
+    title: "Works with Moniepoint, Opay, any bank",
+    description: "Use the bank account you already operate today."
   },
   {
     icon: ImageIcon,
-    title: "Menu with images",
-    description: "Upload food images and show high-conversion item cards to customers."
+    title: "Real-time order notifications",
+    description: "Get instant updates when customers place orders and mark transfers paid."
   }
 ];
 
@@ -73,8 +79,8 @@ const faqs = [
     answer: "No. Customers can browse, order, and pay without creating an account."
   },
   {
-    question: "How does Paystack work?",
-    answer: "Dishpatch initializes transactions and confirms payment server-side through verify/webhook before marking orders paid."
+    question: "How does payment work?",
+    answer: "Dishpatch is transfer-first. Customers place orders, transfer to your account, then you confirm from the dashboard."
   },
   {
     question: "Delivery vs pickup?",
@@ -90,11 +96,11 @@ const faqs = [
   },
   {
     question: "What happens if payment fails?",
-    answer: "The order stays unpaid and can move to failed/expired states based on payment outcome and expiry rules."
+    answer: "If transfer is not confirmed, the order remains pending and can be rejected or expire."
   }
 ];
 
-const heroTypeWords = ["delightful", "real-time", "Paystack-ready", "mobile-first"] as const;
+const heroTypeWords = ["actually pay", "transfer-first", "real-time", "mobile-first"] as const;
 
 const useAnimatedNumber = (value: number, durationMs = 550): number => {
   const reducedMotion = useReducedMotion() ?? false;
@@ -344,7 +350,7 @@ export const LandingPage = () => {
             </Badge>
             <h1 className="text-4xl font-black tracking-tight sm:text-5xl">
               Online ordering for restaurants
-              <span className="block text-primary">fast, secure, and</span>
+              <span className="block text-primary">built for how Nigerians</span>
               <span className="inline-flex min-h-[1.3em] min-w-[14ch] items-center text-primary">
                 {heroTypedWord}
                 {!reducedMotion ? (
@@ -353,7 +359,7 @@ export const LandingPage = () => {
               </span>
             </h1>
             <p className="max-w-2xl text-base text-muted-foreground sm:text-lg">
-              Create a shareable menu link, accept Paystack payments, and manage orders in real time. Dishpatch is built for practical restaurant operations.
+              Customers place orders online and pay via simple bank transfer. You confirm from your dashboard. Built for how Nigerians actually pay.
             </p>
             <div className="flex flex-wrap gap-3">
               <Button asChild size="lg">
@@ -375,7 +381,7 @@ export const LandingPage = () => {
             <div className="flex flex-wrap gap-4 pt-1 text-sm text-muted-foreground">
               <div className="inline-flex items-center gap-2">
                 <CheckCircle2 className="h-4 w-4 text-primary" />
-                Paystack-ready
+                No payment gateway setup required
               </div>
               <div className="inline-flex items-center gap-2">
                 <CheckCircle2 className="h-4 w-4 text-primary" />
@@ -436,7 +442,7 @@ export const LandingPage = () => {
                     exit={reducedMotion ? undefined : { opacity: 0, y: -12 }}
                     className="absolute -right-2 -top-3 rounded-xl border border-primary/35 bg-primary/15 px-3 py-2 text-xs font-medium text-brand-100 shadow-soft"
                   >
-                    New paid order received
+                    Customer marked transfer paid
                   </motion.div>
                 ) : null}
               </AnimatePresence>
@@ -490,8 +496,9 @@ export const LandingPage = () => {
             <RevealStagger className="space-y-6" stagger={0.1}>
               {[
                 { title: "Set up your menu", description: "Create categories, items, pricing, and food images from the admin dashboard." },
-                { title: "Share your link", description: "Send your public order page on WhatsApp, Instagram, and customer broadcasts." },
-                { title: "Get paid orders instantly", description: "Customers pay with Paystack and your team gets real-time updates immediately." }
+                { title: "Share your ordering link", description: "Send your public order page on WhatsApp, Instagram, and customer broadcasts." },
+                { title: "Customers transfer directly", description: "Customers transfer to your account using Moniepoint, Opay, or any bank." },
+                { title: "Confirm and fulfill orders", description: "Mark transfers as confirmed in the dashboard and continue order fulfillment." }
               ].map((step, index) => (
                 <div key={step.title} className="relative">
                 <span className="absolute -left-8 top-1 inline-flex h-6 w-6 items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground">
@@ -503,7 +510,7 @@ export const LandingPage = () => {
                       <h3 className="text-lg font-semibold">{step.title}</h3>
                       <p className="mt-1 text-sm text-muted-foreground">{step.description}</p>
                     </div>
-                    {index < 2 ? <ChevronRight className="mt-1 h-5 w-5 text-accent" /> : null}
+                    {index < 3 ? <ChevronRight className="mt-1 h-5 w-5 text-accent" /> : null}
                   </div>
                 </Card>
                 </div>

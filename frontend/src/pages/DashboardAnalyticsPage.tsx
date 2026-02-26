@@ -298,7 +298,7 @@ export const DashboardAnalyticsPage = () => {
               <p className="text-sm font-medium text-muted-foreground">Payment Status Mix</p>
               <div className="mt-3 flex flex-wrap gap-2">
                 <Badge variant="success">Paid: {overview.kpis.paidOrders}</Badge>
-                <Badge variant="warning">Pending: {overview.kpis.pendingPaymentOrders}</Badge>
+                <Badge variant="warning">Pending: {overview.kpis.pendingTransferOrders}</Badge>
                 <Badge variant="muted">Expired: {overview.kpis.expiredOrders}</Badge>
               </div>
             </Card>
@@ -336,7 +336,7 @@ export const DashboardAnalyticsPage = () => {
           </Reveal>
 
           {noRevenueData ? (
-            <EmptyState title="No paid orders yet" description="Create a test order and complete payment to see analytics." />
+            <EmptyState title="No confirmed orders yet" description="Create a test order and confirm transfer to see analytics." />
           ) : null}
 
           {!hasPaidOrders ? (

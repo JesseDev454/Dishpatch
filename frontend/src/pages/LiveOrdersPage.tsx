@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { io, Socket } from "socket.io-client";
-import { ChefHat, CircleCheck, Clock3, PackageCheck, ShieldX } from "lucide-react";
+import { CircleCheck, Clock3, PackageCheck, ShieldX } from "lucide-react";
 import { AdminShell } from "../components/AdminShell";
 import { Button } from "../components/ui/Button";
 import { Card } from "../components/ui/Card";
@@ -15,17 +15,7 @@ import { getApiErrorMessage } from "../lib/errors";
 import { api, getSocketBaseUrl, getStoredAccessToken } from "../lib/api";
 import { OrderStatus, OrderSummary } from "../types";
 
-const DEFAULT_FILTER_STATUSES = [
-  "PENDING_PAYMENT",
-  "EXPIRED",
-  "PAID",
-  "ACCEPTED",
-  "PREPARING",
-  "READY",
-  "COMPLETED",
-  "CANCELLED",
-  "FAILED_PAYMENT"
-].join(",");
+const DEFAULT_FILTER_STATUSES = ["PENDING_TRANSFER", "EXPIRED", "ACCEPTED", "COMPLETED", "CANCELLED"].join(",");
 
 const sortNewestFirst = (orders: OrderSummary[]): OrderSummary[] => {
   return [...orders].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
@@ -42,7 +32,7 @@ const upsertOrder = (orders: OrderSummary[], incoming: OrderSummary): OrderSumma
   return sortNewestFirst(next);
 };
 
-type OrdersFilter = "ALL" | "PAID" | "IN_PROGRESS" | "COMPLETED" | "EXPIRED";
+type OrdersFilter = "ALL" | "AWAITING_TRANSFER" | "AWAITING_CONFIRMATION" | "ACCEPTED" | "COMPLETED" | "EXPIRED";
 
 const formatTimeAgo = (value: string): string => {
   const elapsedMs = Date.now() - new Date(value).getTime();
@@ -56,6 +46,13 @@ const formatTimeAgo = (value: string): string => {
   }
   const elapsedDays = Math.floor(elapsedHours / 24);
   return `${elapsedDays}d ago`;
+};
+
+const getTransferBadge = (order: OrderSummary): string | null => {
+  if (order.status !== "PENDING_TRANSFER") {
+    return null;
+  }
+  return order.customerMarkedPaidAt ? "Customer Marked Paid" : "Awaiting Transfer";
 };
 
 export const LiveOrdersPage = () => {
@@ -150,12 +147,12 @@ export const LiveOrdersPage = () => {
       }, 1500);
     };
 
-    socket.on("order:paid", (order: OrderSummary) => {
+    socket.on("order:updated", (order: OrderSummary) => {
       setOrders((prev) => upsertOrder(prev, order));
       markFresh(order.id);
     });
 
-    socket.on("order:updated", (order: OrderSummary) => {
+    socket.on("order:paid", (order: OrderSummary) => {
       setOrders((prev) => upsertOrder(prev, order));
       markFresh(order.id);
     });
@@ -179,10 +176,38 @@ export const LiveOrdersPage = () => {
     });
   };
 
-  const updateOrderStatus = async (
-    orderId: number,
-    status: Extract<OrderStatus, "ACCEPTED" | "PREPARING" | "READY" | "COMPLETED" | "CANCELLED">
-  ) => {
+  const confirmTransfer = async (orderId: number) => {
+    setOrderUpdating(orderId, true);
+    try {
+      const response = await api.patch<{ order: OrderSummary }>(`/orders/${orderId}/confirm-transfer`);
+      setOrders((prev) => upsertOrder(prev, response.data.order));
+      showToast(`Order #${orderId} transfer confirmed.`, "success");
+    } catch (error: unknown) {
+      showToast(getApiErrorMessage(error, "Failed to confirm transfer"), "error");
+    } finally {
+      setOrderUpdating(orderId, false);
+    }
+  };
+
+  const rejectTransfer = async (orderId: number) => {
+    const shouldReject = window.confirm("Reject transfer and cancel this order?");
+    if (!shouldReject) {
+      return;
+    }
+
+    setOrderUpdating(orderId, true);
+    try {
+      const response = await api.patch<{ order: OrderSummary }>(`/orders/${orderId}/reject-transfer`);
+      setOrders((prev) => upsertOrder(prev, response.data.order));
+      showToast(`Order #${orderId} transfer rejected.`, "success");
+    } catch (error: unknown) {
+      showToast(getApiErrorMessage(error, "Failed to reject transfer"), "error");
+    } finally {
+      setOrderUpdating(orderId, false);
+    }
+  };
+
+  const updateOrderStatus = async (orderId: number, status: Extract<OrderStatus, "COMPLETED" | "CANCELLED">) => {
     if (status === "CANCELLED") {
       const shouldCancel = window.confirm("Cancel this order?");
       if (!shouldCancel) {
@@ -202,102 +227,79 @@ export const LiveOrdersPage = () => {
     }
   };
 
-  const incoming = useMemo(() => orders.filter((order) => order.status === "PAID"), [orders]);
-  const awaitingPayment = useMemo(
-    () => orders.filter((order) => order.status === "PENDING_PAYMENT" || order.status === "EXPIRED"),
+  const awaitingTransfer = useMemo(
+    () => orders.filter((order) => order.status === "PENDING_TRANSFER" && !order.customerMarkedPaidAt),
     [orders]
   );
-  const inProgress = useMemo(
-    () => orders.filter((order) => order.status === "ACCEPTED" || order.status === "PREPARING"),
+  const awaitingConfirmation = useMemo(
+    () => orders.filter((order) => order.status === "PENDING_TRANSFER" && !!order.customerMarkedPaidAt),
     [orders]
   );
-  const ready = useMemo(() => orders.filter((order) => order.status === "READY"), [orders]);
+  const accepted = useMemo(() => orders.filter((order) => order.status === "ACCEPTED"), [orders]);
   const completed = useMemo(() => orders.filter((order) => order.status === "COMPLETED"), [orders]);
-  const closed = useMemo(
-    () => orders.filter((order) => order.status === "CANCELLED" || order.status === "FAILED_PAYMENT"),
-    [orders]
-  );
+  const expired = useMemo(() => orders.filter((order) => order.status === "EXPIRED"), [orders]);
+  const cancelled = useMemo(() => orders.filter((order) => order.status === "CANCELLED"), [orders]);
 
   const sections = useMemo(() => {
-    if (ordersFilter === "PAID") {
-      return [{ title: "Incoming / Paid", orders: incoming, emptyTitle: "No paid orders", icon: CircleCheck }];
+    if (ordersFilter === "AWAITING_TRANSFER") {
+      return [{ title: "Awaiting Transfer", orders: awaitingTransfer, emptyTitle: "No pending transfers", icon: Clock3 }];
     }
 
-    if (ordersFilter === "IN_PROGRESS") {
-      return [
-        { title: "In Progress", orders: inProgress, emptyTitle: "No orders in prep", icon: ChefHat },
-        { title: "Ready", orders: ready, emptyTitle: "No ready orders", icon: PackageCheck }
-      ];
-    }
-
-    if (ordersFilter === "COMPLETED") {
-      return [{ title: "Completed", orders: completed, emptyTitle: "No completed orders yet", icon: CircleCheck }];
-    }
-
-    if (ordersFilter === "EXPIRED") {
+    if (ordersFilter === "AWAITING_CONFIRMATION") {
       return [
         {
-          title: "Expired Orders",
-          orders: awaitingPayment.filter((order) => order.status === "EXPIRED"),
-          emptyTitle: "No expired orders",
+          title: "Awaiting Confirmation",
+          orders: awaitingConfirmation,
+          emptyTitle: "No customer-paid notifications",
           icon: Clock3
         }
       ];
     }
 
+    if (ordersFilter === "ACCEPTED") {
+      return [{ title: "Accepted", orders: accepted, emptyTitle: "No accepted orders", icon: CircleCheck }];
+    }
+
+    if (ordersFilter === "COMPLETED") {
+      return [{ title: "Completed", orders: completed, emptyTitle: "No completed orders", icon: PackageCheck }];
+    }
+
+    if (ordersFilter === "EXPIRED") {
+      return [{ title: "Expired", orders: expired, emptyTitle: "No expired orders", icon: ShieldX }];
+    }
+
     return [
-      { title: "Awaiting Payment", orders: awaitingPayment, emptyTitle: "No unpaid orders", icon: Clock3 },
-      { title: "Incoming / Paid", orders: incoming, emptyTitle: "No paid orders", icon: CircleCheck },
-      { title: "In Progress", orders: inProgress, emptyTitle: "No orders in prep", icon: ChefHat },
-      { title: "Ready", orders: ready, emptyTitle: "No ready orders", icon: PackageCheck },
-      { title: "Completed", orders: completed, emptyTitle: "No completed orders yet", icon: CircleCheck },
-      { title: "Closed", orders: closed, emptyTitle: "No cancelled or failed orders", icon: ShieldX }
+      { title: "Awaiting Transfer", orders: awaitingTransfer, emptyTitle: "No pending transfers", icon: Clock3 },
+      {
+        title: "Awaiting Confirmation",
+        orders: awaitingConfirmation,
+        emptyTitle: "No customer-paid notifications",
+        icon: Clock3
+      },
+      { title: "Accepted", orders: accepted, emptyTitle: "No accepted orders", icon: CircleCheck },
+      { title: "Completed", orders: completed, emptyTitle: "No completed orders", icon: PackageCheck },
+      { title: "Expired", orders: expired, emptyTitle: "No expired orders", icon: ShieldX },
+      { title: "Cancelled", orders: cancelled, emptyTitle: "No cancelled orders", icon: ShieldX }
     ];
-  }, [ordersFilter, incoming, awaitingPayment, inProgress, ready, completed, closed]);
+  }, [ordersFilter, awaitingTransfer, awaitingConfirmation, accepted, completed, expired, cancelled]);
 
   const renderActions = (order: OrderSummary) => {
     const isUpdating = updatingOrderIds.has(order.id);
 
-    if (order.status === "PAID") {
+    if (order.status === "PENDING_TRANSFER" && order.customerMarkedPaidAt) {
       return (
         <div className="flex flex-wrap gap-2">
-          <Button size="sm" disabled={isUpdating} onClick={() => void updateOrderStatus(order.id, "ACCEPTED")}>
-            Accept
+          <Button size="sm" disabled={isUpdating} onClick={() => void confirmTransfer(order.id)}>
+            Confirm Payment
           </Button>
-          <Button size="sm" variant="danger" disabled={isUpdating} onClick={() => void updateOrderStatus(order.id, "CANCELLED")}>
-            Cancel
+          <Button size="sm" variant="danger" disabled={isUpdating} onClick={() => void rejectTransfer(order.id)}>
+            Reject Payment
           </Button>
         </div>
       );
     }
 
     if (order.status === "ACCEPTED") {
-      return (
-        <div className="flex flex-wrap gap-2">
-          <Button size="sm" disabled={isUpdating} onClick={() => void updateOrderStatus(order.id, "PREPARING")}>
-            Start Prep
-          </Button>
-          <Button size="sm" variant="danger" disabled={isUpdating} onClick={() => void updateOrderStatus(order.id, "CANCELLED")}>
-            Cancel
-          </Button>
-        </div>
-      );
-    }
-
-    if (order.status === "PREPARING") {
-      return (
-        <div className="flex flex-wrap gap-2">
-          <Button size="sm" disabled={isUpdating} onClick={() => void updateOrderStatus(order.id, "READY")}>
-            Mark Ready
-          </Button>
-          <Button size="sm" variant="danger" disabled={isUpdating} onClick={() => void updateOrderStatus(order.id, "CANCELLED")}>
-            Cancel
-          </Button>
-        </div>
-      );
-    }
-
-    if (order.status === "READY") {
       return (
         <div className="flex flex-wrap gap-2">
           <Button size="sm" disabled={isUpdating} onClick={() => void updateOrderStatus(order.id, "COMPLETED")}>
@@ -315,64 +317,70 @@ export const LiveOrdersPage = () => {
 
   const renderOrderCard = (order: OrderSummary) => {
     const isFresh = freshOrderIds.has(order.id);
+    const transferBadge = getTransferBadge(order);
+
     return (
-    <motion.article
-      key={order.id}
-      layout
-      initial={reducedMotion ? undefined : { opacity: 0, y: 10 }}
-      animate={
-        reducedMotion
-          ? undefined
-          : isFresh
-            ? { opacity: 1, y: 0, scale: [1, 1.01, 1] }
-            : { opacity: 1, y: 0, scale: 1 }
-      }
-      transition={reducedMotion ? undefined : isFresh ? { duration: 1.5, ease: "easeOut" } : { duration: 0.2, ease: "easeOut" }}
-      className={`card-hover rounded-2xl border bg-card p-4 ${
-        isFresh ? "ring-2 ring-primary/35 ring-offset-2 ring-offset-background" : ""
-      }`}
-    >
-      <div className="mb-2 flex items-start justify-between gap-2">
-        <div>
-          <strong className="text-foreground">Order #{order.id}</strong>
-          <p className="text-sm text-muted-foreground">
-            {new Date(order.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })} | {order.type} | {formatTimeAgo(order.createdAt)}
-          </p>
+      <motion.article
+        key={order.id}
+        layout
+        initial={reducedMotion ? undefined : { opacity: 0, y: 10 }}
+        animate={
+          reducedMotion
+            ? undefined
+            : isFresh
+              ? { opacity: 1, y: 0, scale: [1, 1.01, 1] }
+              : { opacity: 1, y: 0, scale: 1 }
+        }
+        transition={reducedMotion ? undefined : isFresh ? { duration: 1.5, ease: "easeOut" } : { duration: 0.2, ease: "easeOut" }}
+        className={`card-hover rounded-2xl border bg-card p-4 ${
+          isFresh ? "ring-2 ring-primary/35 ring-offset-2 ring-offset-background" : ""
+        }`}
+      >
+        <div className="mb-2 flex items-start justify-between gap-2">
+          <div>
+            <strong className="text-foreground">Order #{order.id}</strong>
+            <p className="text-sm text-muted-foreground">
+              {new Date(order.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })} | {order.type} |{" "}
+              {formatTimeAgo(order.createdAt)}
+            </p>
+          </div>
+          <AnimatePresence mode="wait" initial={false}>
+            <motion.div
+              key={`${order.id}-${order.status}`}
+              initial={reducedMotion ? undefined : { opacity: 0, scale: 0.95 }}
+              animate={reducedMotion ? undefined : { opacity: 1, scale: 1 }}
+              exit={reducedMotion ? undefined : { opacity: 0, scale: 0.95 }}
+              transition={reducedMotion ? undefined : { duration: 0.16, ease: "easeOut" }}
+            >
+              <OrderStatusBadge status={order.status} />
+            </motion.div>
+          </AnimatePresence>
         </div>
-        <AnimatePresence mode="wait" initial={false}>
-          <motion.div
-            key={`${order.id}-${order.status}`}
-            initial={reducedMotion ? undefined : { opacity: 0, scale: 0.95 }}
-            animate={reducedMotion ? undefined : { opacity: 1, scale: 1 }}
-            exit={reducedMotion ? undefined : { opacity: 0, scale: 0.95 }}
-            transition={reducedMotion ? undefined : { duration: 0.16, ease: "easeOut" }}
-          >
-            <OrderStatusBadge status={order.status} />
-          </motion.div>
-        </AnimatePresence>
-      </div>
-      <p className="text-sm text-foreground/80">
-        {order.customerName} | {order.customerPhone}
-      </p>
-      {order.deliveryAddress ? <p className="text-sm text-muted-foreground">{order.deliveryAddress}</p> : null}
-      <div className="my-3 space-y-1">
-        {order.items.map((item) => (
-          <p key={item.id} className="text-sm text-muted-foreground">
-            {item.quantity} x {item.nameSnapshot} (NGN {Number(item.unitPriceSnapshot).toLocaleString()})
-          </p>
-        ))}
-      </div>
-      <p className="mb-3">
-        <strong>Total: NGN {Number(order.totalAmount).toLocaleString()}</strong>
-      </p>
-      {renderActions(order)}
-    </motion.article>
+        {transferBadge ? (
+          <p className="mb-2 inline-flex rounded-full bg-warning-500/15 px-2 py-1 text-xs font-semibold text-warning-100">{transferBadge}</p>
+        ) : null}
+        <p className="text-sm text-foreground/80">
+          {order.customerName} | {order.customerPhone}
+        </p>
+        {order.deliveryAddress ? <p className="text-sm text-muted-foreground">{order.deliveryAddress}</p> : null}
+        <div className="my-3 space-y-1">
+          {order.items.map((item) => (
+            <p key={item.id} className="text-sm text-muted-foreground">
+              {item.quantity} x {item.nameSnapshot} (NGN {Number(item.unitPriceSnapshot).toLocaleString()})
+            </p>
+          ))}
+        </div>
+        <p className="mb-3">
+          <strong>Total: NGN {Number(order.totalAmount).toLocaleString()}</strong>
+        </p>
+        {renderActions(order)}
+      </motion.article>
     );
   };
 
   if (loading) {
     return (
-      <AdminShell user={user} onLogout={() => void logout()} title="Live Orders" subtitle="Realtime kitchen workflow for your restaurant team.">
+      <AdminShell user={user} onLogout={() => void logout()} title="Live Orders" subtitle="Realtime transfer confirmation workflow.">
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           {Array.from({ length: 6 }).map((_, index) => (
             <Card key={index}>
@@ -393,7 +401,7 @@ export const LiveOrdersPage = () => {
         void logout();
       }}
       title="Live Orders"
-      subtitle="Realtime kitchen workflow for your restaurant team."
+      subtitle="Realtime transfer confirmation workflow."
       actions={
         <>
           {realtimeConnected ? <Badge variant="success">Realtime connected</Badge> : null}
@@ -408,28 +416,27 @@ export const LiveOrdersPage = () => {
         <Button size="sm" variant={ordersFilter === "ALL" ? "primary" : "secondary"} onClick={() => setOrdersFilter("ALL")}>
           All
         </Button>
-        <Button size="sm" variant={ordersFilter === "PAID" ? "primary" : "secondary"} onClick={() => setOrdersFilter("PAID")}>
-          Paid
+        <Button
+          size="sm"
+          variant={ordersFilter === "AWAITING_TRANSFER" ? "primary" : "secondary"}
+          onClick={() => setOrdersFilter("AWAITING_TRANSFER")}
+        >
+          Awaiting Transfer
         </Button>
         <Button
           size="sm"
-          variant={ordersFilter === "IN_PROGRESS" ? "primary" : "secondary"}
-          onClick={() => setOrdersFilter("IN_PROGRESS")}
+          variant={ordersFilter === "AWAITING_CONFIRMATION" ? "primary" : "secondary"}
+          onClick={() => setOrdersFilter("AWAITING_CONFIRMATION")}
         >
-          In progress
+          Awaiting Confirmation
         </Button>
-        <Button
-          size="sm"
-          variant={ordersFilter === "COMPLETED" ? "primary" : "secondary"}
-          onClick={() => setOrdersFilter("COMPLETED")}
-        >
+        <Button size="sm" variant={ordersFilter === "ACCEPTED" ? "primary" : "secondary"} onClick={() => setOrdersFilter("ACCEPTED")}>
+          Accepted
+        </Button>
+        <Button size="sm" variant={ordersFilter === "COMPLETED" ? "primary" : "secondary"} onClick={() => setOrdersFilter("COMPLETED")}>
           Completed
         </Button>
-        <Button
-          size="sm"
-          variant={ordersFilter === "EXPIRED" ? "primary" : "secondary"}
-          onClick={() => setOrdersFilter("EXPIRED")}
-        >
+        <Button size="sm" variant={ordersFilter === "EXPIRED" ? "primary" : "secondary"} onClick={() => setOrdersFilter("EXPIRED")}>
           Expired
         </Button>
       </div>
@@ -462,9 +469,7 @@ export const LiveOrdersPage = () => {
             <Card key={section.title} title={section.title}>
               {section.orders.length ? (
                 <motion.div layout className="space-y-2">
-                  <AnimatePresence initial={false}>
-                    {section.orders.map(renderOrderCard)}
-                  </AnimatePresence>
+                  <AnimatePresence initial={false}>{section.orders.map(renderOrderCard)}</AnimatePresence>
                 </motion.div>
               ) : (
                 <EmptyState icon={section.icon} title={section.emptyTitle} />

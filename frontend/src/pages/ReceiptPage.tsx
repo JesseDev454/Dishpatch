@@ -122,7 +122,7 @@ export const ReceiptPage = () => {
               animate={reducedMotion ? undefined : { opacity: 1, scale: 1 }}
               transition={reducedMotion ? undefined : { delay: 0.12, duration: 0.2, ease: "easeOut" }}
             >
-              <Badge variant="success">PAID</Badge>
+              <Badge variant="success">TRANSFER CONFIRMED</Badge>
             </motion.div>
           </div>
         </section>

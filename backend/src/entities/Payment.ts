@@ -10,10 +10,10 @@ import {
 } from "typeorm";
 import { Order } from "./Order";
 
-export type PaymentProvider = "PAYSTACK";
+export type PaymentProvider = "TRANSFER";
 export type PaymentStatus = "PENDING" | "SUCCESS" | "FAILED";
 
-export const PAYMENT_PROVIDERS: PaymentProvider[] = ["PAYSTACK"];
+export const PAYMENT_PROVIDERS: PaymentProvider[] = ["TRANSFER"];
 export const PAYMENT_STATUSES: PaymentStatus[] = ["PENDING", "SUCCESS", "FAILED"];
 
 @Entity({ name: "payments" })
@@ -25,7 +25,7 @@ export class Payment {
   @Column({ type: "int" })
   orderId!: number;
 
-  @Column({ type: "enum", enum: PAYMENT_PROVIDERS, default: "PAYSTACK" })
+  @Column({ type: "enum", enum: PAYMENT_PROVIDERS, default: "TRANSFER" })
   provider!: PaymentProvider;
 
   @Index({ unique: true })

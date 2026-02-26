@@ -7,7 +7,7 @@ export const ANALYTICS_RANGE_DAYS: Record<AnalyticsRange, number> = {
   "30d": 30
 };
 
-export const REVENUE_ORDER_STATUSES: OrderStatus[] = ["PAID", "ACCEPTED", "PREPARING", "READY", "COMPLETED"];
+export const REVENUE_ORDER_STATUSES: OrderStatus[] = ["ACCEPTED", "COMPLETED"];
 
 const revenueStatusSet = new Set<OrderStatus>(REVENUE_ORDER_STATUSES);
 
@@ -48,4 +48,3 @@ export const toMoneyString = (value: unknown): string => {
 
   return numeric.toFixed(2);
 };
-

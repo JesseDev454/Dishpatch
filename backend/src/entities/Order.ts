@@ -14,30 +14,11 @@ import { Restaurant } from "./Restaurant";
 import { OrderItem } from "./OrderItem";
 import { Payment } from "./Payment";
 
-export type OrderStatus =
-  | "PENDING_PAYMENT"
-  | "EXPIRED"
-  | "PAID"
-  | "ACCEPTED"
-  | "PREPARING"
-  | "READY"
-  | "COMPLETED"
-  | "CANCELLED"
-  | "FAILED_PAYMENT";
+export type OrderStatus = "PENDING_TRANSFER" | "EXPIRED" | "ACCEPTED" | "COMPLETED" | "CANCELLED";
 
 export type OrderType = "DELIVERY" | "PICKUP";
 
-export const ORDER_STATUSES: OrderStatus[] = [
-  "PENDING_PAYMENT",
-  "EXPIRED",
-  "PAID",
-  "ACCEPTED",
-  "PREPARING",
-  "READY",
-  "COMPLETED",
-  "CANCELLED",
-  "FAILED_PAYMENT"
-];
+export const ORDER_STATUSES: OrderStatus[] = ["PENDING_TRANSFER", "EXPIRED", "ACCEPTED", "COMPLETED", "CANCELLED"];
 
 export const ORDER_TYPES: OrderType[] = ["DELIVERY", "PICKUP"];
 
@@ -50,7 +31,7 @@ export class Order {
   @Column({ type: "int" })
   restaurantId!: number;
 
-  @Column({ type: "enum", enum: ORDER_STATUSES, default: "PENDING_PAYMENT" })
+  @Column({ type: "enum", enum: ORDER_STATUSES, default: "PENDING_TRANSFER" })
   status!: OrderStatus;
 
   @Column({ type: "enum", enum: ORDER_TYPES })
@@ -67,6 +48,9 @@ export class Order {
 
   @Column({ type: "varchar", length: 255, nullable: true })
   deliveryAddress!: string | null;
+
+  @Column({ type: "timestamptz", nullable: true })
+  customerMarkedPaidAt!: Date | null;
 
   @Column({ type: "decimal", precision: 10, scale: 2, default: "0.00" })
   totalAmount!: string;

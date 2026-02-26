@@ -20,8 +20,7 @@ const querySchema = z.object({
 });
 
 const statusUpdateSchema = z.object({
-  status: z.enum(["ACCEPTED", "PREPARING", "READY", "COMPLETED", "CANCELLED"]),
-  cancelReason: z.string().trim().min(1).max(255).optional()
+  status: z.enum(["COMPLETED", "CANCELLED"])
 });
 
 const parseStatusFilter = (value: string | undefined): OrderStatus[] => {
@@ -40,6 +39,20 @@ const parseStatusFilter = (value: string | undefined): OrderStatus[] => {
   }
 
   return requested as OrderStatus[];
+};
+
+const getOwnedOrder = async (id: number, restaurantId: number): Promise<Order> => {
+  const repo = AppDataSource.getRepository(Order);
+  const order = await repo.findOne({
+    where: { id, restaurantId },
+    relations: { orderItems: true }
+  });
+
+  if (!order) {
+    throw new HttpError(404, "Order not found");
+  }
+
+  return order;
 };
 
 router.get("/", async (req, res, next) => {
@@ -76,6 +89,64 @@ router.get("/", async (req, res, next) => {
   }
 });
 
+router.patch("/:id/confirm-transfer", async (req, res, next) => {
+  try {
+    const id = Number(req.params.id);
+    if (!Number.isInteger(id) || id < 1) {
+      throw new HttpError(400, "Invalid order id");
+    }
+
+    const repo = AppDataSource.getRepository(Order);
+    const order = await getOwnedOrder(id, req.authUser!.restaurantId);
+
+    if (order.status !== "PENDING_TRANSFER") {
+      throw new HttpError(400, "Order is not awaiting transfer confirmation");
+    }
+
+    if (!order.customerMarkedPaidAt) {
+      throw new HttpError(400, "Customer has not marked this order as paid");
+    }
+
+    order.status = "ACCEPTED";
+    const saved = await repo.save(order);
+    const summary = toOrderSummary(saved);
+    realtimeEmitter.emitOrderUpdated(summary);
+
+    res.json({ order: summary });
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.patch("/:id/reject-transfer", async (req, res, next) => {
+  try {
+    const id = Number(req.params.id);
+    if (!Number.isInteger(id) || id < 1) {
+      throw new HttpError(400, "Invalid order id");
+    }
+
+    const repo = AppDataSource.getRepository(Order);
+    const order = await getOwnedOrder(id, req.authUser!.restaurantId);
+
+    if (order.status !== "PENDING_TRANSFER") {
+      throw new HttpError(400, "Order is not awaiting transfer confirmation");
+    }
+
+    if (!order.customerMarkedPaidAt) {
+      throw new HttpError(400, "Customer has not marked this order as paid");
+    }
+
+    order.status = "CANCELLED";
+    const saved = await repo.save(order);
+    const summary = toOrderSummary(saved);
+    realtimeEmitter.emitOrderUpdated(summary);
+
+    res.json({ order: summary });
+  } catch (error) {
+    next(error);
+  }
+});
+
 router.patch("/:id/status", async (req, res, next) => {
   try {
     const id = Number(req.params.id);
@@ -85,18 +156,7 @@ router.patch("/:id/status", async (req, res, next) => {
 
     const parsed = statusUpdateSchema.parse(req.body);
     const repo = AppDataSource.getRepository(Order);
-
-    const order = await repo.findOne({
-      where: {
-        id,
-        restaurantId: req.authUser!.restaurantId
-      },
-      relations: { orderItems: true }
-    });
-
-    if (!order) {
-      throw new HttpError(404, "Order not found");
-    }
+    const order = await getOwnedOrder(id, req.authUser!.restaurantId);
 
     try {
       assertOrderStatusTransition(order.status, parsed.status);

@@ -2,7 +2,7 @@ import { selectOrdersForExpiry } from "../../utils/order-expiry";
 import { Order } from "../../entities/Order";
 
 const pendingOrder = (createdAt: Date): Pick<Order, "status" | "createdAt"> => ({
-  status: "PENDING_PAYMENT",
+  status: "PENDING_TRANSFER",
   createdAt
 });
 
@@ -29,8 +29,8 @@ describe("order expiry selection", () => {
 
   it("never expires non-pending orders", () => {
     const orders: Array<Pick<Order, "status" | "createdAt">> = [
-      { status: "PAID", createdAt: new Date("2026-02-21T11:00:00.000Z") },
-      { status: "FAILED_PAYMENT", createdAt: new Date("2026-02-21T11:00:00.000Z") },
+      { status: "ACCEPTED", createdAt: new Date("2026-02-21T11:00:00.000Z") },
+      { status: "CANCELLED", createdAt: new Date("2026-02-21T11:00:00.000Z") },
       { status: "COMPLETED", createdAt: new Date("2026-02-21T11:00:00.000Z") }
     ];
     const expirable = selectOrdersForExpiry(orders, now, 30);

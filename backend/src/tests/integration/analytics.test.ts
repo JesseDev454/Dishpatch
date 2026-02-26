@@ -104,14 +104,14 @@ describe("Analytics Endpoints", () => {
 
     await createOrderWithItemsAndStatus({
       slug: accountA.user.restaurant.slug,
-      status: "PAID",
+      status: "ACCEPTED",
       createdAt: atUtcNoonDaysAgo(0),
       items: [{ itemId: menuA.itemAId, quantity: 1 }]
     });
 
     await createOrderWithItemsAndStatus({
       slug: accountB.user.restaurant.slug,
-      status: "PAID",
+      status: "ACCEPTED",
       createdAt: atUtcNoonDaysAgo(0),
       items: [{ itemId: menuB.itemAId, quantity: 4 }]
     });
@@ -143,7 +143,7 @@ describe("Analytics Endpoints", () => {
 
     await createOrderWithItemsAndStatus({
       slug: account.user.restaurant.slug,
-      status: "PAID",
+      status: "ACCEPTED",
       createdAt: atUtcNoonDaysAgo(0),
       items: [
         { itemId: menu.itemAId, quantity: 2 },
@@ -160,7 +160,7 @@ describe("Analytics Endpoints", () => {
 
     await createOrderWithItemsAndStatus({
       slug: account.user.restaurant.slug,
-      status: "PENDING_PAYMENT",
+      status: "PENDING_TRANSFER",
       createdAt: atUtcNoonDaysAgo(0),
       items: [{ itemId: menu.itemBId, quantity: 4 }]
     });
@@ -186,7 +186,7 @@ describe("Analytics Endpoints", () => {
         totalRevenue: "9000.00",
         avgOrderValue: "4500.00",
         paidOrders: 2,
-        pendingPaymentOrders: 1,
+        pendingTransferOrders: 1,
         expiredOrders: 1
       })
     );
@@ -231,4 +231,3 @@ describe("Analytics Endpoints", () => {
     );
   });
 });
-

@@ -7,15 +7,15 @@ import { Item } from "../entities/Item";
 import { Order } from "../entities/Order";
 import { OrderItem } from "../entities/OrderItem";
 import { Payment } from "../entities/Payment";
-import { PaymentService } from "../services/payment.service";
-import { PaystackService } from "../services/paystack.service";
-import { env } from "../config/env";
 import { HttpError } from "../middleware/error-handler";
+import { env } from "../config/env";
 import { isPendingOrderExpired } from "../utils/order-expiry";
+import { toOrderSummary } from "../realtime/order-summary";
+import * as realtimeEmitter from "../realtime/realtime-emitter";
 
 const router = Router();
 
-const RECEIPT_ALLOWED_ORDER_STATUSES = new Set<string>(["PAID", "ACCEPTED", "PREPARING", "READY", "COMPLETED"]);
+const RECEIPT_ALLOWED_ORDER_STATUSES = new Set<string>(["ACCEPTED", "COMPLETED"]);
 
 const createOrderSchema = z.object({
   type: z.enum(["DELIVERY", "PICKUP"]),
@@ -52,7 +52,11 @@ router.get("/restaurants/:slug", async (req, res, next) => {
         name: restaurant.name,
         slug: restaurant.slug,
         phone: restaurant.phone,
-        address: restaurant.address
+        address: restaurant.address,
+        bankName: restaurant.bankName,
+        accountNumber: restaurant.accountNumber,
+        accountName: restaurant.accountName,
+        bankInstructions: restaurant.bankInstructions
       }
     });
   } catch (error) {
@@ -89,7 +93,11 @@ router.get("/restaurants/:slug/menu", async (req, res, next) => {
       restaurant: {
         id: restaurant.id,
         name: restaurant.name,
-        slug: restaurant.slug
+        slug: restaurant.slug,
+        bankName: restaurant.bankName,
+        accountNumber: restaurant.accountNumber,
+        accountName: restaurant.accountName,
+        bankInstructions: restaurant.bankInstructions
       },
       categories: categories.map((category) => ({
         id: category.id,
@@ -157,12 +165,13 @@ router.post("/restaurants/:slug/orders", async (req, res, next) => {
 
       const order = orderRepo.create({
         restaurantId: restaurant.id,
-        status: "PENDING_PAYMENT",
+        status: "PENDING_TRANSFER",
         type: parsed.type,
         customerName: parsed.customerName.trim(),
         customerPhone: parsed.customerPhone.trim(),
         customerEmail: parsed.customerEmail ? parsed.customerEmail.trim() : null,
         deliveryAddress: parsed.type === "DELIVERY" ? normalizedAddress : null,
+        customerMarkedPaidAt: null,
         totalAmount: "0.00"
       });
 
@@ -195,6 +204,8 @@ router.post("/restaurants/:slug/orders", async (req, res, next) => {
       return updatedOrder;
     });
 
+    realtimeEmitter.emitOrderUpdated(toOrderSummary(created));
+
     res.status(201).json({
       order: {
         id: created.id,
@@ -203,7 +214,9 @@ router.post("/restaurants/:slug/orders", async (req, res, next) => {
         type: created.type,
         customerName: created.customerName,
         customerPhone: created.customerPhone,
+        customerEmail: created.customerEmail,
         deliveryAddress: created.deliveryAddress,
+        customerMarkedPaidAt: created.customerMarkedPaidAt,
         totalAmount: created.totalAmount,
         createdAt: created.createdAt,
         updatedAt: created.updatedAt,
@@ -215,6 +228,12 @@ router.post("/restaurants/:slug/orders", async (req, res, next) => {
           quantity: line.quantity,
           lineTotal: line.lineTotal
         }))
+      },
+      transferDetails: {
+        bankName: restaurant.bankName,
+        accountNumber: restaurant.accountNumber,
+        accountName: restaurant.accountName,
+        bankInstructions: restaurant.bankInstructions
       }
     });
   } catch (error) {
@@ -222,18 +241,17 @@ router.post("/restaurants/:slug/orders", async (req, res, next) => {
   }
 });
 
-router.post("/orders/:orderId/paystack/initialize", async (req, res, next) => {
+router.post("/orders/:id/mark-paid", async (req, res, next) => {
   try {
-    const orderId = Number(req.params.orderId);
-    if (!Number.isInteger(orderId)) {
+    const id = Number(req.params.id);
+    if (!Number.isInteger(id) || id < 1) {
       throw new HttpError(400, "Invalid order id");
     }
 
-    const email = typeof req.body?.email === "string" ? req.body.email.trim() : "";
     const orderRepo = AppDataSource.getRepository(Order);
     const order = await orderRepo.findOne({
-      where: { id: orderId },
-      relations: { orderItems: true }
+      where: { id },
+      relations: { orderItems: true, restaurant: true }
     });
 
     if (!order) {
@@ -243,166 +261,32 @@ router.post("/orders/:orderId/paystack/initialize", async (req, res, next) => {
     if (isPendingOrderExpired(order, new Date(), env.orders.expiryMinutes)) {
       order.status = "EXPIRED";
       await orderRepo.save(order);
-      throw new HttpError(400, "Order payment window has expired");
+      realtimeEmitter.emitOrderUpdated(toOrderSummary(order));
+      throw new HttpError(400, "Order transfer window has expired");
     }
 
     if (order.status === "EXPIRED") {
-      throw new HttpError(400, "Order payment window has expired");
+      throw new HttpError(400, "Order transfer window has expired");
     }
 
-    if (order.status !== "PENDING_PAYMENT" && order.status !== "FAILED_PAYMENT") {
-      throw new HttpError(400, "Order is not awaiting payment");
+    if (order.status === "CANCELLED" || order.status === "COMPLETED") {
+      throw new HttpError(400, "Order can no longer be marked as paid");
     }
 
-    if (!order.orderItems || order.orderItems.length === 0) {
-      throw new HttpError(400, "Order has no items");
-    }
-
-    if (!order.customerEmail) {
-      if (!email) {
-        throw new HttpError(400, "customerEmail is required");
-      }
-      order.customerEmail = email;
+    if (!order.customerMarkedPaidAt) {
+      order.customerMarkedPaidAt = new Date();
       await orderRepo.save(order);
-    }
-
-    let payment: Payment;
-    try {
-      const paymentService = new PaymentService();
-      payment = await paymentService.createPendingPayment({ id: order.id });
-    } catch (error) {
-      throw new HttpError(400, (error as Error).message);
-    }
-
-    const paystackService = new PaystackService();
-    const initResponse = await paystackService.initializeTransaction({
-      email: order.customerEmail,
-      amount: payment.amountKobo,
-      reference: payment.reference,
-      callback_url: env.paystack.callbackUrl,
-      metadata: {
-        orderId: order.id,
-        restaurantId: order.restaurantId
-      }
-    });
-
-    if (!initResponse?.status || !initResponse.data?.authorization_url) {
-      throw new HttpError(502, "Failed to initialize payment");
+      realtimeEmitter.emitOrderUpdated(toOrderSummary(order));
     }
 
     res.json({
-      authorizationUrl: initResponse.data.authorization_url,
-      reference: initResponse.data.reference ?? payment.reference
-    });
-  } catch (error) {
-    next(error);
-  }
-});
-
-router.get("/payments/paystack/verify", async (req, res, next) => {
-  try {
-    const reference = String(req.query.reference ?? "").trim();
-    if (!reference) {
-      throw new HttpError(400, "reference is required");
-    }
-
-    const paymentRepo = AppDataSource.getRepository(Payment);
-    const existingPayment = await paymentRepo.findOne({
-      where: { reference },
-      relations: { order: { restaurant: true } }
-    });
-
-    if (!existingPayment) {
-      throw new HttpError(404, "Payment not found");
-    }
-
-    const existingOrder = existingPayment.order;
-    if (existingOrder && isPendingOrderExpired(existingOrder, new Date(), env.orders.expiryMinutes)) {
-      existingOrder.status = "EXPIRED";
-      const orderRepo = AppDataSource.getRepository(Order);
-      await orderRepo.save(existingOrder);
-      throw new HttpError(400, "Order payment window has expired");
-    }
-
-    if (existingOrder?.status === "EXPIRED") {
-      throw new HttpError(400, "Order payment window has expired");
-    }
-
-    if (existingPayment.status === "SUCCESS") {
-      res.json({
-        status: "success",
-        payment: {
-          reference: existingPayment.reference,
-          status: existingPayment.status,
-          paidAt: existingPayment.paidAt,
-          amountKobo: existingPayment.amountKobo
-        },
-        order: existingOrder
-          ? {
-              id: existingOrder.id,
-              status: existingOrder.status,
-              totalAmount: existingOrder.totalAmount,
-              restaurantSlug: existingOrder.restaurant?.slug ?? undefined
-            }
-          : null
-      });
-      return;
-    }
-
-    const paystackService = new PaystackService();
-    const verifyResponse = await paystackService.verifyTransaction(reference);
-
-    const paymentService = new PaymentService();
-
-    if (verifyResponse?.data?.status === "success") {
-      const payment = await paymentService.markPaymentSuccess(reference, verifyResponse);
-      const orderRepo = AppDataSource.getRepository(Order);
-      const order = await orderRepo.findOne({
-        where: { id: payment.orderId },
-        relations: { restaurant: true }
-      });
-
-      res.json({
-        status: "success",
-        payment: {
-          reference: payment.reference,
-          status: payment.status,
-          paidAt: payment.paidAt,
-          amountKobo: payment.amountKobo
-        },
-        order: order
-          ? {
-              id: order.id,
-              status: order.status,
-              totalAmount: order.totalAmount,
-              restaurantSlug: order.restaurant?.slug ?? undefined
-            }
-          : null
-      });
-      return;
-    }
-
-    const failedPayment = await paymentService.markPaymentFailed(reference);
-    const orderRepo = AppDataSource.getRepository(Order);
-    const order = await orderRepo.findOne({
-      where: { id: failedPayment.orderId },
-      relations: { restaurant: true }
-    });
-
-    res.status(400).json({
-      status: "failed",
-      payment: {
-        reference: failedPayment.reference,
-        status: failedPayment.status
-      },
-      order: order
-        ? {
-            id: order.id,
-            status: order.status,
-            totalAmount: order.totalAmount,
-            restaurantSlug: order.restaurant?.slug ?? undefined
-          }
-        : null
+      order: {
+        id: order.id,
+        status: order.status,
+        customerMarkedPaidAt: order.customerMarkedPaidAt,
+        totalAmount: order.totalAmount,
+        restaurantId: order.restaurantId
+      }
     });
   } catch (error) {
     next(error);

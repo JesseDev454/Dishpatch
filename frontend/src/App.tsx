@@ -7,9 +7,6 @@ const LandingPage = lazy(() => import("./pages/LandingPage").then((mod) => ({ de
 const LoginPage = lazy(() => import("./pages/LoginPage").then((mod) => ({ default: mod.LoginPage })));
 const RegisterPage = lazy(() => import("./pages/RegisterPage").then((mod) => ({ default: mod.RegisterPage })));
 const DashboardPage = lazy(() => import("./pages/DashboardPage").then((mod) => ({ default: mod.DashboardPage })));
-const PaymentCallbackPage = lazy(() =>
-  import("./pages/PaymentCallbackPage").then((mod) => ({ default: mod.PaymentCallbackPage }))
-);
 const PublicOrderPage = lazy(() => import("./pages/PublicOrderPage").then((mod) => ({ default: mod.PublicOrderPage })));
 const LiveOrdersPage = lazy(() => import("./pages/LiveOrdersPage").then((mod) => ({ default: mod.LiveOrdersPage })));
 const ReceiptPage = lazy(() => import("./pages/ReceiptPage").then((mod) => ({ default: mod.ReceiptPage })));
@@ -39,7 +36,6 @@ export default function App() {
           <Route path="/register" element={<RegisterPage />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/r/:slug" element={<PublicOrderPage />} />
-          <Route path="/payment/callback" element={<PaymentCallbackPage />} />
           <Route path="/receipt/:reference" element={<ReceiptPage />} />
           <Route
             path="/dashboard"

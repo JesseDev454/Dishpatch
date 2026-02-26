@@ -46,7 +46,7 @@ router.get("/overview", async (req, res, next) => {
       .addSelect("COALESCE(SUM(CASE WHEN o.status IN (:...revenueStatuses) THEN 1 ELSE 0 END), 0)", "paidOrders")
       .addSelect(
         "COALESCE(SUM(CASE WHEN o.status = :pendingStatus THEN 1 ELSE 0 END), 0)",
-        "pendingPaymentOrders"
+        "pendingTransferOrders"
       )
       .addSelect("COALESCE(SUM(CASE WHEN o.status = :expiredStatus THEN 1 ELSE 0 END), 0)", "expiredOrders")
       .addSelect(
@@ -68,7 +68,7 @@ router.get("/overview", async (req, res, next) => {
       .where("o.restaurantId = :restaurantId", { restaurantId })
       .setParameters({
         revenueStatuses: REVENUE_ORDER_STATUSES,
-        pendingStatus: "PENDING_PAYMENT",
+        pendingStatus: "PENDING_TRANSFER",
         expiredStatus: "EXPIRED",
         todayStart: todayStart.toISOString(),
         rangeStart: rangeStart.toISOString(),
@@ -83,7 +83,7 @@ router.get("/overview", async (req, res, next) => {
         totalRevenue: string | number;
         avgOrderValue: string | number;
         paidOrders: string | number;
-        pendingPaymentOrders: string | number;
+        pendingTransferOrders: string | number;
         expiredOrders: string | number;
       }>();
 
@@ -98,7 +98,7 @@ router.get("/overview", async (req, res, next) => {
         totalRevenue: toMoneyString(raw?.totalRevenue),
         avgOrderValue: toMoneyString(raw?.avgOrderValue),
         paidOrders: Number(raw?.paidOrders ?? 0),
-        pendingPaymentOrders: Number(raw?.pendingPaymentOrders ?? 0),
+        pendingTransferOrders: Number(raw?.pendingTransferOrders ?? 0),
         expiredOrders: Number(raw?.expiredOrders ?? 0)
       }
     });

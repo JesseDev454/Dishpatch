@@ -20,7 +20,7 @@ export const runExpirySweepOnce = async (
 
   const orderRepo = dataSource.getRepository(Order);
   const pendingOrders = await orderRepo.find({
-    where: { status: "PENDING_PAYMENT" },
+    where: { status: "PENDING_TRANSFER" },
     relations: { orderItems: true },
     order: { createdAt: "ASC" }
   });
@@ -32,7 +32,7 @@ export const runExpirySweepOnce = async (
     const updateResult = await orderRepo.update(
       {
         id: order.id,
-        status: "PENDING_PAYMENT"
+        status: "PENDING_TRANSFER"
       },
       {
         status: "EXPIRED"

@@ -4,6 +4,10 @@ export interface Restaurant {
   id: number;
   name: string;
   slug: string;
+  bankName?: string | null;
+  accountNumber?: string | null;
+  accountName?: string | null;
+  bankInstructions?: string | null;
 }
 
 export interface AuthUser {
@@ -36,15 +40,11 @@ export interface Item {
 }
 
 export type OrderStatus =
-  | "PENDING_PAYMENT"
+  | "PENDING_TRANSFER"
   | "EXPIRED"
-  | "PAID"
   | "ACCEPTED"
-  | "PREPARING"
-  | "READY"
   | "COMPLETED"
-  | "CANCELLED"
-  | "FAILED_PAYMENT";
+  | "CANCELLED";
 
 export type OrderType = "DELIVERY" | "PICKUP";
 
@@ -65,6 +65,7 @@ export interface OrderSummary {
   customerName: string;
   customerPhone: string;
   deliveryAddress: string | null;
+  customerMarkedPaidAt: string | null;
   totalAmount: string;
   createdAt: string;
   updatedAt: string;
@@ -82,7 +83,7 @@ export interface AnalyticsOverviewKpis {
   totalRevenue: string;
   avgOrderValue: string;
   paidOrders: number;
-  pendingPaymentOrders: number;
+  pendingTransferOrders: number;
   expiredOrders: number;
 }
 

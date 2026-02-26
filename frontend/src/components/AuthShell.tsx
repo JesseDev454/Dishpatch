@@ -25,7 +25,7 @@ export const AuthShell = ({ title, subtitle, altText, altLink, altLabel, childre
           <div className="space-y-2">
             <p className="text-lg font-semibold text-foreground">Run your restaurant from one dashboard.</p>
             <p className="text-sm text-muted-foreground">
-              Manage menus, track live orders, and handle payments with practical tools built for daily ops.
+              Manage menus, track live orders, and confirm transfer payments with practical tools built for daily ops.
             </p>
           </div>
         </aside>

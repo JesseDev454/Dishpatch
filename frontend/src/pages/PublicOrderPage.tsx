@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ShieldCheck, ShoppingCart } from "lucide-react";
+import { Copy, ShieldCheck, ShoppingCart } from "lucide-react";
 import { useParams } from "react-router-dom";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import logo from "@/assets/Dishpatch-logo-1.png";
@@ -13,6 +13,7 @@ import { EmptyState } from "../components/ui/EmptyState";
 import { InputField } from "../components/ui/InputField";
 import { Reveal, RevealStagger } from "../components/ui/motion";
 import { Skeleton } from "../components/ui/Skeleton";
+import { OrderStatus } from "../types";
 
 type PublicMenuItem = {
   id: number;
@@ -31,11 +32,22 @@ type PublicCategory = {
   items: PublicMenuItem[];
 };
 
+type TransferDetails = {
+  bankName: string | null;
+  accountNumber: string | null;
+  accountName: string | null;
+  bankInstructions: string | null;
+};
+
 type MenuResponse = {
   restaurant: {
     id: number;
     name: string;
     slug: string;
+    bankName: string | null;
+    accountNumber: string | null;
+    accountName: string | null;
+    bankInstructions: string | null;
   };
   categories: PublicCategory[];
 };
@@ -47,12 +59,42 @@ type CartLine = {
 
 type CheckoutErrors = Partial<Record<"customerName" | "customerPhone" | "customerEmail" | "deliveryAddress", string>>;
 
+type CreatedOrder = {
+  id: number;
+  status: OrderStatus;
+  customerMarkedPaidAt: string | null;
+};
+
 const ngnNumberFormatter = new Intl.NumberFormat("en-NG", {
   minimumFractionDigits: 2,
   maximumFractionDigits: 2
 });
 
 const formatNgn = (value: number): string => `NGN ${ngnNumberFormatter.format(value)}`;
+
+const getTransferStatusLabel = (order: CreatedOrder | null): string => {
+  if (!order) {
+    return "Awaiting Transfer";
+  }
+
+  if (order.status === "PENDING_TRANSFER" && !order.customerMarkedPaidAt) {
+    return "Awaiting Transfer";
+  }
+
+  if (order.status === "PENDING_TRANSFER" && order.customerMarkedPaidAt) {
+    return "Awaiting Confirmation";
+  }
+
+  if (order.status === "ACCEPTED" || order.status === "COMPLETED") {
+    return "Payment Confirmed";
+  }
+
+  if (order.status === "CANCELLED") {
+    return "Cancelled";
+  }
+
+  return "Expired";
+};
 
 export const PublicOrderPage = () => {
   const { slug } = useParams();
@@ -74,9 +116,10 @@ export const PublicOrderPage = () => {
   const [errors, setErrors] = useState<CheckoutErrors>({});
 
   const [cart, setCart] = useState<CartLine[]>([]);
-  const [orderId, setOrderId] = useState<number | null>(null);
+  const [order, setOrder] = useState<CreatedOrder | null>(null);
+  const [transferDetails, setTransferDetails] = useState<TransferDetails | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isInitializingPayment, setIsInitializingPayment] = useState(false);
+  const [isMarkingPaid, setIsMarkingPaid] = useState(false);
 
   const fetchMenu = async () => {
     try {
@@ -169,7 +212,8 @@ export const PublicOrderPage = () => {
       showToast(`${item.name} added to cart`, "success", 1200);
     }
 
-    setOrderId(null);
+    setOrder(null);
+    setTransferDetails(null);
   };
 
   const validateCheckout = () => {
@@ -181,8 +225,8 @@ export const PublicOrderPage = () => {
     if (!customerPhone.trim()) {
       nextErrors.customerPhone = "Customer phone is required.";
     }
-    if (!customerEmail.trim()) {
-      nextErrors.customerEmail = "Customer email is required.";
+    if (customerEmail.trim() && !/^\S+@\S+\.\S+$/.test(customerEmail.trim())) {
+      nextErrors.customerEmail = "Enter a valid email.";
     }
     if (orderType === "DELIVERY" && !deliveryAddress.trim()) {
       nextErrors.deliveryAddress = "Delivery address is required for delivery orders.";
@@ -207,17 +251,26 @@ export const PublicOrderPage = () => {
 
     setIsSubmitting(true);
     try {
-      const response = await publicApi.post<{ order: { id: number } }>(`/public/restaurants/${slug}/orders`, {
+      const response = await publicApi.post<{
+        order: { id: number; status: OrderStatus; customerMarkedPaidAt: string | null };
+        transferDetails: TransferDetails;
+      }>(`/public/restaurants/${slug}/orders`, {
         type: orderType,
         customerName: customerName.trim(),
         customerPhone: customerPhone.trim(),
-        customerEmail: customerEmail.trim(),
+        customerEmail: customerEmail.trim() ? customerEmail.trim() : null,
         deliveryAddress: orderType === "DELIVERY" ? deliveryAddress.trim() : null,
         items: cart.map((line) => ({ itemId: line.item.id, quantity: line.quantity }))
       });
-      setOrderId(response.data.order.id);
+
+      setOrder({
+        id: response.data.order.id,
+        status: response.data.order.status,
+        customerMarkedPaidAt: response.data.order.customerMarkedPaidAt
+      });
+      setTransferDetails(response.data.transferDetails);
       setCartOpen(true);
-      showToast("Order created. Proceed to payment.", "success");
+      showToast("Order created. Make transfer and notify the restaurant.", "success");
     } catch (error: any) {
       showToast(error?.response?.data?.message ?? "Failed to create order", "error");
     } finally {
@@ -225,45 +278,76 @@ export const PublicOrderPage = () => {
     }
   };
 
-  const payNow = async () => {
-    if (!orderId) {
+  const markPaid = async () => {
+    if (!order) {
       return;
     }
-    setIsInitializingPayment(true);
+
+    setIsMarkingPaid(true);
     try {
-      const response = await publicApi.post<{ authorizationUrl: string }>(`/public/orders/${orderId}/paystack/initialize`, {
-        email: customerEmail.trim()
-      });
-      window.location.href = response.data.authorizationUrl;
+      const response = await publicApi.post<{ order: { status: OrderStatus; customerMarkedPaidAt: string | null } }>(
+        `/public/orders/${order.id}/mark-paid`
+      );
+
+      setOrder((prev) =>
+        prev
+          ? {
+              ...prev,
+              status: response.data.order.status,
+              customerMarkedPaidAt: response.data.order.customerMarkedPaidAt
+            }
+          : prev
+      );
+      showToast("Restaurant notified. Awaiting confirmation.", "success");
     } catch (error: any) {
-      showToast(error?.response?.data?.message ?? "Failed to initialize payment", "error");
+      showToast(error?.response?.data?.message ?? "Could not notify restaurant", "error");
     } finally {
-      setIsInitializingPayment(false);
+      setIsMarkingPaid(false);
     }
   };
 
-  const isPayNowStep = Boolean(orderId);
+  const copyAccountNumber = async () => {
+    const accountNumber = transferDetails?.accountNumber ?? menu?.restaurant.accountNumber;
+    if (!accountNumber) {
+      showToast("Account number not available.", "error");
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(accountNumber);
+      showToast("Account number copied", "success");
+    } catch {
+      showToast("Could not copy account number", "error");
+    }
+  };
+
   const canCreateOrder =
     cart.length > 0 &&
     customerName.trim().length > 0 &&
     customerPhone.trim().length > 0 &&
-    customerEmail.trim().length > 0 &&
     (orderType === "PICKUP" || deliveryAddress.trim().length > 0);
-  const primaryActionLoading = isPayNowStep ? isInitializingPayment : isSubmitting;
-  const primaryActionLabel = isPayNowStep
-    ? isInitializingPayment
-      ? "Redirecting..."
-      : "Pay Now"
+
+  const canNotifyPaid =
+    !!order &&
+    order.status === "PENDING_TRANSFER" &&
+    !order.customerMarkedPaidAt &&
+    !isMarkingPaid;
+
+  const primaryActionLabel = order
+    ? order.customerMarkedPaidAt
+      ? "Awaiting Confirmation"
+      : "I've Paid — Notify Restaurant"
     : isSubmitting
       ? "Creating..."
       : "Place Order";
-  const primaryActionDisabled = isPayNowStep
-    ? primaryActionLoading || !orderId || customerEmail.trim().length === 0
-    : primaryActionLoading || !canCreateOrder;
+
+  const primaryActionDisabled = order
+    ? !canNotifyPaid
+    : isSubmitting || !canCreateOrder;
 
   const onPrimaryAction = () => {
-    if (isPayNowStep) {
-      void payNow();
+    if (order) {
+      void markPaid();
       return;
     }
 
@@ -274,7 +358,7 @@ export const PublicOrderPage = () => {
     <div className="space-y-4">
       <div className="space-y-1">
         <h3 className="text-base font-semibold text-foreground">Customer details</h3>
-        <p className="text-xs text-muted-foreground">These details are used for delivery updates and payment receipt.</p>
+        <p className="text-xs text-muted-foreground">Used for order communication and transfer verification.</p>
       </div>
       <InputField
         required
@@ -283,7 +367,8 @@ export const PublicOrderPage = () => {
         error={errors.customerName}
         onChange={(event) => {
           setCustomerName(event.target.value);
-          setOrderId(null);
+          setOrder(null);
+          setTransferDetails(null);
           setErrors((prev) => ({ ...prev, customerName: undefined }));
         }}
         placeholder="Your name"
@@ -295,20 +380,21 @@ export const PublicOrderPage = () => {
         error={errors.customerPhone}
         onChange={(event) => {
           setCustomerPhone(event.target.value);
-          setOrderId(null);
+          setOrder(null);
+          setTransferDetails(null);
           setErrors((prev) => ({ ...prev, customerPhone: undefined }));
         }}
         placeholder="080..."
       />
       <InputField
-        required
-        label="Email (for Paystack)"
+        label="Email (optional)"
         type="email"
         value={customerEmail}
         error={errors.customerEmail}
         onChange={(event) => {
           setCustomerEmail(event.target.value);
-          setOrderId(null);
+          setOrder(null);
+          setTransferDetails(null);
           setErrors((prev) => ({ ...prev, customerEmail: undefined }));
         }}
         placeholder="customer@email.com"
@@ -323,7 +409,8 @@ export const PublicOrderPage = () => {
             onClick={() => {
               setOrderType("PICKUP");
               setDeliveryAddress("");
-              setOrderId(null);
+              setOrder(null);
+              setTransferDetails(null);
               setErrors((prev) => ({ ...prev, deliveryAddress: undefined }));
             }}
           >
@@ -335,7 +422,8 @@ export const PublicOrderPage = () => {
             variant={orderType === "DELIVERY" ? "primary" : "ghost"}
             onClick={() => {
               setOrderType("DELIVERY");
-              setOrderId(null);
+              setOrder(null);
+              setTransferDetails(null);
             }}
           >
             Delivery
@@ -350,13 +438,42 @@ export const PublicOrderPage = () => {
         error={errors.deliveryAddress}
         onChange={(event) => {
           setDeliveryAddress(event.target.value);
-          setOrderId(null);
+          setOrder(null);
+          setTransferDetails(null);
           setErrors((prev) => ({ ...prev, deliveryAddress: undefined }));
         }}
         placeholder={orderType === "PICKUP" ? "Not required for pickup" : "Street, area, city"}
       />
     </div>
   );
+
+  const renderTransferInstructions = () => {
+    const details = transferDetails ?? menu?.restaurant;
+    if (!order || !details) {
+      return null;
+    }
+
+    return (
+      <div className="space-y-2 rounded-2xl border border-primary/25 bg-primary/10 p-3">
+        <p className="text-sm font-semibold text-foreground">Transfer Payment</p>
+        <p className="text-xs text-muted-foreground">Order #{order.id} | {getTransferStatusLabel(order)}</p>
+        <p className="text-sm text-foreground">
+          <span className="font-semibold">Bank:</span> {details.bankName ?? "Not set"}
+        </p>
+        <p className="text-sm text-foreground">
+          <span className="font-semibold">Account Number:</span> {details.accountNumber ?? "Not set"}
+        </p>
+        <p className="text-sm text-foreground">
+          <span className="font-semibold">Account Name:</span> {details.accountName ?? "Not set"}
+        </p>
+        {details.bankInstructions ? <p className="text-xs text-muted-foreground">{details.bankInstructions}</p> : null}
+        <Button type="button" variant="secondary" size="sm" onClick={() => void copyAccountNumber()}>
+          <Copy className="h-4 w-4" />
+          Copy account number
+        </Button>
+      </div>
+    );
+  };
 
   const renderCartItemsSection = (isMobile = false) => (
     <div className="space-y-3">
@@ -402,23 +519,8 @@ export const PublicOrderPage = () => {
           </AnimatePresence>
         )}
       </div>
+      {renderTransferInstructions()}
     </div>
-  );
-
-  const renderCheckoutSuccess = () => (
-    <AnimatePresence>
-      {orderId ? (
-        <motion.div
-          initial={reducedMotion ? undefined : { opacity: 0, scale: 0.98, y: 6 }}
-          animate={reducedMotion ? undefined : { opacity: 1, scale: 1, y: 0 }}
-          exit={reducedMotion ? undefined : { opacity: 0, scale: 0.98, y: -6 }}
-          transition={reducedMotion ? undefined : { duration: 0.2, ease: "easeOut" }}
-          className="mt-2 rounded-xl border border-primary/30 bg-primary/10 px-3 py-2 text-sm text-primary"
-        >
-          Order created: #{orderId}. Click Pay Now to continue.
-        </motion.div>
-      ) : null}
-    </AnimatePresence>
   );
 
   const renderCheckoutFooter = (isMobile = false) => (
@@ -442,13 +544,12 @@ export const PublicOrderPage = () => {
         type="button"
         size="lg"
         className="mt-3 w-full"
-        loading={primaryActionLoading}
+        loading={isSubmitting || isMarkingPaid}
         disabled={primaryActionDisabled}
         onClick={onPrimaryAction}
       >
         {primaryActionLabel}
       </Button>
-      {renderCheckoutSuccess()}
     </div>
   );
 
@@ -505,10 +606,10 @@ export const PublicOrderPage = () => {
             <span className="text-sm font-semibold text-foreground">Dishpatch</span>
           </div>
           <h1 className="text-2xl font-extrabold tracking-tight text-foreground">{menu.restaurant.name}</h1>
-          <p className="mt-1 text-sm text-muted-foreground">Order in minutes. Freshly prepared and ready to go.</p>
+          <p className="mt-1 text-sm text-muted-foreground">Order in minutes. Pay by transfer. Restaurant confirms from dashboard.</p>
           <p className="mt-2 inline-flex items-center gap-1 rounded-full bg-primary/15 px-3 py-1 text-xs font-semibold text-brand-100">
             <ShieldCheck className="h-3.5 w-3.5" />
-            Secure checkout via Paystack
+            No payment gateway setup required
           </p>
           <div className="no-scrollbar mt-3 flex gap-2 overflow-x-auto pb-1">
             {menu.categories.map((category) => (

@@ -8,6 +8,7 @@ import { ItemManager } from "../components/ItemManager";
 import { Button } from "../components/ui/Button";
 import { Card } from "../components/ui/Card";
 import { EmptyState } from "../components/ui/EmptyState";
+import { InputField } from "../components/ui/InputField";
 import { motion, Reveal, RevealStagger, useReducedMotion } from "../components/ui/motion";
 import { Skeleton } from "../components/ui/Skeleton";
 import { Tabs, TabsList, TabsTrigger } from "../components/ui/Tabs";
@@ -18,7 +19,7 @@ import { api, setAccessToken } from "../lib/api";
 import { Category, Item } from "../types";
 
 export const DashboardPage = () => {
-  const { user, logout } = useAuth();
+  const { user, logout, refreshUser } = useAuth();
   const { showToast } = useToast();
   const reducedMotion = useReducedMotion() ?? false;
   const [categories, setCategories] = useState<Category[]>([]);
@@ -26,12 +27,24 @@ export const DashboardPage = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [view, setView] = useState<"all" | "categories" | "items">("all");
+  const [bankName, setBankName] = useState(user?.restaurant.bankName ?? "");
+  const [accountNumber, setAccountNumber] = useState(user?.restaurant.accountNumber ?? "");
+  const [accountName, setAccountName] = useState(user?.restaurant.accountName ?? "");
+  const [bankInstructions, setBankInstructions] = useState(user?.restaurant.bankInstructions ?? "");
+  const [savingBankDetails, setSavingBankDetails] = useState(false);
   const qrContainerRef = useRef<HTMLDivElement | null>(null);
   const restaurantSlug = user?.restaurant.slug ?? "";
   const publicOrderUrl = restaurantSlug ? `https://dishpatch.vercel.app/r/${restaurantSlug}` : "";
   const whatsappShareUrl = publicOrderUrl
     ? `https://wa.me/?text=${encodeURIComponent(`Order from us here: ${publicOrderUrl}`)}`
     : "";
+
+  useEffect(() => {
+    setBankName(user?.restaurant.bankName ?? "");
+    setAccountNumber(user?.restaurant.accountNumber ?? "");
+    setAccountName(user?.restaurant.accountName ?? "");
+    setBankInstructions(user?.restaurant.bankInstructions ?? "");
+  }, [user?.restaurant.bankName, user?.restaurant.accountNumber, user?.restaurant.accountName, user?.restaurant.bankInstructions]);
 
   const loadCategories = async () => {
     const res = await api.get<{ categories: Category[] }>("/categories");
@@ -126,6 +139,29 @@ export const DashboardPage = () => {
       image.src = url;
     } catch {
       showToast("Could not download QR.", "error");
+    }
+  };
+
+  const saveBankDetails = async () => {
+    if (!bankName.trim() || !accountNumber.trim() || !accountName.trim()) {
+      showToast("Bank name, account number, and account name are required.", "error");
+      return;
+    }
+
+    setSavingBankDetails(true);
+    try {
+      await api.patch("/auth/bank-details", {
+        bankName: bankName.trim(),
+        accountNumber: accountNumber.trim(),
+        accountName: accountName.trim(),
+        bankInstructions: bankInstructions.trim() ? bankInstructions.trim() : null
+      });
+      await refreshUser();
+      showToast("Bank details updated.", "success");
+    } catch (error: unknown) {
+      showToast(getApiErrorMessage(error, "Failed to save bank details"), "error");
+    } finally {
+      setSavingBankDetails(false);
     }
   };
 
@@ -262,6 +298,30 @@ export const DashboardPage = () => {
             </div>
           </Card>
         </motion.div>
+
+        <Reveal className="mb-4">
+          <Card
+            title="Bank Details"
+            subtitle="Customers see this after placing an order and use it for transfer payment."
+          >
+            <div className="grid gap-3 md:grid-cols-2">
+              <InputField label="Bank name" value={bankName} onChange={(event) => setBankName(event.target.value)} placeholder="Moniepoint / Opay / Bank" />
+              <InputField label="Account number" value={accountNumber} onChange={(event) => setAccountNumber(event.target.value)} placeholder="0123456789" />
+              <InputField label="Account name" value={accountName} onChange={(event) => setAccountName(event.target.value)} placeholder="Restaurant account name" />
+              <InputField
+                label="Instructions (optional)"
+                value={bankInstructions}
+                onChange={(event) => setBankInstructions(event.target.value)}
+                placeholder="Use order ID as narration"
+              />
+            </div>
+            <div className="mt-3">
+              <Button onClick={() => void saveBankDetails()} loading={savingBankDetails}>
+                Save Bank Details
+              </Button>
+            </div>
+          </Card>
+        </Reveal>
 
         <RevealStagger className="grid gap-4 md:grid-cols-2">
           <Card title="Categories" subtitle="Total categories currently in your menu">

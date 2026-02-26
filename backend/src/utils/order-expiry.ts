@@ -14,7 +14,7 @@ export const isPendingOrderExpired = (
   now: Date = new Date(),
   expiryMinutes: number = DEFAULT_ORDER_EXPIRY_MINUTES
 ): boolean => {
-  if (order.status !== "PENDING_PAYMENT") {
+  if (order.status !== "PENDING_TRANSFER") {
     return false;
   }
 

@@ -30,6 +30,18 @@ export class Restaurant {
   @Column({ type: "varchar", length: 255, nullable: true })
   address!: string | null;
 
+  @Column({ type: "varchar", length: 120, nullable: true })
+  bankName!: string | null;
+
+  @Column({ type: "varchar", length: 40, nullable: true })
+  accountNumber!: string | null;
+
+  @Column({ type: "varchar", length: 140, nullable: true })
+  accountName!: string | null;
+
+  @Column({ type: "text", nullable: true })
+  bankInstructions!: string | null;
+
   @CreateDateColumn({ type: "timestamptz" })
   createdAt!: Date;
 

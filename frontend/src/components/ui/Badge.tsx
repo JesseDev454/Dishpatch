@@ -31,15 +31,11 @@ export const Badge = ({ children, variant = "default", className }: BadgeProps) 
 };
 
 const statusVariantMap: Record<OrderStatus, NonNullable<BadgeProps["variant"]>> = {
-  PENDING_PAYMENT: "warning",
+  PENDING_TRANSFER: "warning",
   EXPIRED: "muted",
-  PAID: "success",
   ACCEPTED: "info",
-  PREPARING: "warning",
-  READY: "info",
   COMPLETED: "success",
-  CANCELLED: "muted",
-  FAILED_PAYMENT: "danger"
+  CANCELLED: "danger"
 };
 
 export const OrderStatusBadge = ({ status, className }: { status: OrderStatus; className?: string }) => {

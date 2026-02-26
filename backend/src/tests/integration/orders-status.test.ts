@@ -5,7 +5,7 @@ import { AppDataSource } from "../../config/data-source";
 import { Order } from "../../entities/Order";
 import * as realtimeEmitter from "../../realtime/realtime-emitter";
 
-describe("Order Status Workflow", () => {
+describe("Order Transfer Workflow", () => {
   const app = createApp();
   const emitOrderUpdatedSpy = jest.spyOn(realtimeEmitter, "emitOrderUpdated");
 
@@ -13,7 +13,7 @@ describe("Order Status Workflow", () => {
     emitOrderUpdatedSpy.mockClear();
   });
 
-  const createPendingOrder = async (token: string, slug: string) => {
+  const createPendingTransferOrder = async (token: string, slug: string) => {
     const category = await request(app)
       .post("/categories")
       .set("Authorization", `Bearer ${token}`)
@@ -47,7 +47,7 @@ describe("Order Status Workflow", () => {
     return orderResponse.body.order.id as number;
   };
 
-  it("cannot update order that belongs to another restaurant", async () => {
+  it("cannot confirm transfer for order that belongs to another restaurant", async () => {
     const restaurantA = await registerAndGetToken(app, {
       restaurantName: "Workflow Tenant A",
       email: "workflow-a@dishpatch.test",
@@ -59,65 +59,48 @@ describe("Order Status Workflow", () => {
       password: "StrongPass123"
     });
 
-    const orderId = await createPendingOrder(restaurantA.accessToken, restaurantA.user.restaurant.slug);
+    const orderId = await createPendingTransferOrder(restaurantA.accessToken, restaurantA.user.restaurant.slug);
+    await request(app).post(`/public/orders/${orderId}/mark-paid`);
+
     const response = await request(app)
-      .patch(`/orders/${orderId}/status`)
-      .set("Authorization", `Bearer ${restaurantB.accessToken}`)
-      .send({ status: "ACCEPTED" });
+      .patch(`/orders/${orderId}/confirm-transfer`)
+      .set("Authorization", `Bearer ${restaurantB.accessToken}`);
 
     expect([403, 404]).toContain(response.status);
   });
 
-  it("rejects moving PENDING_PAYMENT order to ACCEPTED", async () => {
+  it("rejects confirming transfer before customer marks paid", async () => {
     const auth = await registerAndGetToken(app, {
       restaurantName: "Workflow Pending Validation",
       email: "workflow-pending@dishpatch.test",
       password: "StrongPass123"
     });
 
-    const orderId = await createPendingOrder(auth.accessToken, auth.user.restaurant.slug);
+    const orderId = await createPendingTransferOrder(auth.accessToken, auth.user.restaurant.slug);
     const response = await request(app)
-      .patch(`/orders/${orderId}/status`)
-      .set("Authorization", `Bearer ${auth.accessToken}`)
-      .send({ status: "ACCEPTED" });
+      .patch(`/orders/${orderId}/confirm-transfer`)
+      .set("Authorization", `Bearer ${auth.accessToken}`);
 
     expect(response.status).toBe(400);
-    expect(response.body.message).toContain("Invalid order status transition");
+    expect(response.body.message).toContain("Customer has not marked");
   });
 
-  it("allows valid dashboard status transitions", async () => {
+  it("confirms transfer and supports ACCEPTED -> COMPLETED transition", async () => {
     const auth = await registerAndGetToken(app, {
       restaurantName: "Workflow Valid Transitions",
       email: "workflow-valid@dishpatch.test",
       password: "StrongPass123"
     });
 
-    const orderId = await createPendingOrder(auth.accessToken, auth.user.restaurant.slug);
-    const orderRepo = AppDataSource.getRepository(Order);
-    const order = await orderRepo.findOneOrFail({ where: { id: orderId } });
-    order.status = "PAID";
-    await orderRepo.save(order);
+    const orderId = await createPendingTransferOrder(auth.accessToken, auth.user.restaurant.slug);
+    const markPaid = await request(app).post(`/public/orders/${orderId}/mark-paid`);
+    expect(markPaid.status).toBe(200);
 
     const accepted = await request(app)
-      .patch(`/orders/${orderId}/status`)
-      .set("Authorization", `Bearer ${auth.accessToken}`)
-      .send({ status: "ACCEPTED" });
+      .patch(`/orders/${orderId}/confirm-transfer`)
+      .set("Authorization", `Bearer ${auth.accessToken}`);
     expect(accepted.status).toBe(200);
     expect(accepted.body.order.status).toBe("ACCEPTED");
-
-    const preparing = await request(app)
-      .patch(`/orders/${orderId}/status`)
-      .set("Authorization", `Bearer ${auth.accessToken}`)
-      .send({ status: "PREPARING" });
-    expect(preparing.status).toBe(200);
-    expect(preparing.body.order.status).toBe("PREPARING");
-
-    const ready = await request(app)
-      .patch(`/orders/${orderId}/status`)
-      .set("Authorization", `Bearer ${auth.accessToken}`)
-      .send({ status: "READY" });
-    expect(ready.status).toBe(200);
-    expect(ready.body.order.status).toBe("READY");
 
     const completed = await request(app)
       .patch(`/orders/${orderId}/status`)
@@ -127,26 +110,40 @@ describe("Order Status Workflow", () => {
     expect(completed.body.order.status).toBe("COMPLETED");
   });
 
-  it("emits order:updated payload when status update succeeds", async () => {
+  it("rejects transfer notification and moves order to CANCELLED", async () => {
+    const auth = await registerAndGetToken(app, {
+      restaurantName: "Workflow Reject Restaurant",
+      email: "workflow-reject@dishpatch.test",
+      password: "StrongPass123"
+    });
+
+    const orderId = await createPendingTransferOrder(auth.accessToken, auth.user.restaurant.slug);
+    await request(app).post(`/public/orders/${orderId}/mark-paid`);
+
+    const rejected = await request(app)
+      .patch(`/orders/${orderId}/reject-transfer`)
+      .set("Authorization", `Bearer ${auth.accessToken}`);
+
+    expect(rejected.status).toBe(200);
+    expect(rejected.body.order.status).toBe("CANCELLED");
+  });
+
+  it("emits order:updated payload when confirm-transfer succeeds", async () => {
     const auth = await registerAndGetToken(app, {
       restaurantName: "Workflow Emitter Restaurant",
       email: "workflow-emitter@dishpatch.test",
       password: "StrongPass123"
     });
 
-    const orderId = await createPendingOrder(auth.accessToken, auth.user.restaurant.slug);
-    const orderRepo = AppDataSource.getRepository(Order);
-    const order = await orderRepo.findOneOrFail({ where: { id: orderId } });
-    order.status = "PAID";
-    await orderRepo.save(order);
+    const orderId = await createPendingTransferOrder(auth.accessToken, auth.user.restaurant.slug);
+    await request(app).post(`/public/orders/${orderId}/mark-paid`);
 
     const response = await request(app)
-      .patch(`/orders/${orderId}/status`)
-      .set("Authorization", `Bearer ${auth.accessToken}`)
-      .send({ status: "ACCEPTED" });
+      .patch(`/orders/${orderId}/confirm-transfer`)
+      .set("Authorization", `Bearer ${auth.accessToken}`);
 
     expect(response.status).toBe(200);
-    expect(emitOrderUpdatedSpy).toHaveBeenCalledTimes(1);
+    expect(emitOrderUpdatedSpy).toHaveBeenCalled();
     expect(emitOrderUpdatedSpy).toHaveBeenCalledWith(
       expect.objectContaining({
         id: orderId,
@@ -154,5 +151,28 @@ describe("Order Status Workflow", () => {
         status: "ACCEPTED"
       })
     );
+  });
+
+  it("keeps tenant-safe status updates via /orders/:id/status", async () => {
+    const auth = await registerAndGetToken(app, {
+      restaurantName: "Workflow Status Endpoint",
+      email: "workflow-status@dishpatch.test",
+      password: "StrongPass123"
+    });
+
+    const orderId = await createPendingTransferOrder(auth.accessToken, auth.user.restaurant.slug);
+    await request(app).post(`/public/orders/${orderId}/mark-paid`);
+    await request(app).patch(`/orders/${orderId}/confirm-transfer`).set("Authorization", `Bearer ${auth.accessToken}`);
+
+    const cancel = await request(app)
+      .patch(`/orders/${orderId}/status`)
+      .set("Authorization", `Bearer ${auth.accessToken}`)
+      .send({ status: "CANCELLED" });
+    expect(cancel.status).toBe(200);
+    expect(cancel.body.order.status).toBe("CANCELLED");
+
+    const orderRepo = AppDataSource.getRepository(Order);
+    const persisted = await orderRepo.findOneOrFail({ where: { id: orderId } });
+    expect(persisted.status).toBe("CANCELLED");
   });
 });

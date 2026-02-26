@@ -56,24 +56,26 @@ describe("Order Expiry Job", () => {
 
   it("expires only old pending orders and emits realtime update", async () => {
     const pending = await createOrder("pending");
-    const paid = await createOrder("paid");
-    const failed = await createOrder("failed");
+    const accepted = await createOrder("accepted");
+    const cancelled = await createOrder("cancelled");
 
     const orderRepo = AppDataSource.getRepository(Order);
     const oldDate = new Date(Date.now() - 31 * 60 * 1000);
 
-    await orderRepo.query(`UPDATE "orders" SET "createdAt" = $1, "status" = 'PENDING_PAYMENT' WHERE "id" = $2`, [
+    await orderRepo.query(`UPDATE "orders" SET "createdAt" = $1, "status" = 'PENDING_TRANSFER' WHERE "id" = $2`, [
       oldDate,
       pending.orderId
     ]);
-    await orderRepo.query(`UPDATE "orders" SET "createdAt" = $1, "status" = 'PAID' WHERE "id" = $2`, [
+    await orderRepo.query(`UPDATE "orders" SET "createdAt" = $1, "status" = 'ACCEPTED' WHERE "id" = $2`, [
       oldDate,
-      paid.orderId
+      accepted.orderId
     ]);
-    await orderRepo.query(`UPDATE "orders" SET "createdAt" = $1, "status" = 'FAILED_PAYMENT' WHERE "id" = $2`, [
+    await orderRepo.query(`UPDATE "orders" SET "createdAt" = $1, "status" = 'CANCELLED' WHERE "id" = $2`, [
       oldDate,
-      failed.orderId
+      cancelled.orderId
     ]);
+
+    emitOrderUpdatedSpy.mockClear();
 
     const expiredCount = await runExpirySweepOnce(AppDataSource, {
       now: new Date(),
@@ -82,12 +84,12 @@ describe("Order Expiry Job", () => {
 
     expect(expiredCount).toBe(1);
     const pendingAfter = await orderRepo.findOneOrFail({ where: { id: pending.orderId } });
-    const paidAfter = await orderRepo.findOneOrFail({ where: { id: paid.orderId } });
-    const failedAfter = await orderRepo.findOneOrFail({ where: { id: failed.orderId } });
+    const acceptedAfter = await orderRepo.findOneOrFail({ where: { id: accepted.orderId } });
+    const cancelledAfter = await orderRepo.findOneOrFail({ where: { id: cancelled.orderId } });
 
     expect(pendingAfter.status).toBe("EXPIRED");
-    expect(paidAfter.status).toBe("PAID");
-    expect(failedAfter.status).toBe("FAILED_PAYMENT");
+    expect(acceptedAfter.status).toBe("ACCEPTED");
+    expect(cancelledAfter.status).toBe("CANCELLED");
 
     expect(emitOrderUpdatedSpy).toHaveBeenCalledTimes(1);
     expect(emitOrderUpdatedSpy).toHaveBeenCalledWith(

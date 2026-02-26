@@ -35,8 +35,19 @@ const userSafe = (user: User) => ({
   restaurant: {
     id: user.restaurant.id,
     name: user.restaurant.name,
-    slug: user.restaurant.slug
+    slug: user.restaurant.slug,
+    bankName: user.restaurant.bankName,
+    accountNumber: user.restaurant.accountNumber,
+    accountName: user.restaurant.accountName,
+    bankInstructions: user.restaurant.bankInstructions
   }
+});
+
+const bankDetailsSchema = z.object({
+  bankName: z.string().trim().min(1, "Bank name is required"),
+  accountNumber: z.string().trim().min(6, "Account number is required"),
+  accountName: z.string().trim().min(1, "Account name is required"),
+  bankInstructions: z.string().trim().optional().nullable()
 });
 
 const getUniqueSlug = async (baseName: string): Promise<string> => {
@@ -204,6 +215,39 @@ router.get("/me", requireAuth, async (req, res, next) => {
     }
 
     res.json({ user: userSafe(user) });
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.patch("/bank-details", requireAuth, async (req, res, next) => {
+  try {
+    const parsed = bankDetailsSchema.parse(req.body);
+
+    const restaurantRepo = AppDataSource.getRepository(Restaurant);
+    const restaurant = await restaurantRepo.findOne({ where: { id: req.authUser!.restaurantId } });
+    if (!restaurant) {
+      throw new HttpError(404, "Restaurant not found");
+    }
+
+    restaurant.bankName = parsed.bankName;
+    restaurant.accountNumber = parsed.accountNumber;
+    restaurant.accountName = parsed.accountName;
+    restaurant.bankInstructions = parsed.bankInstructions?.trim() ? parsed.bankInstructions.trim() : null;
+
+    const savedRestaurant = await restaurantRepo.save(restaurant);
+
+    res.json({
+      restaurant: {
+        id: savedRestaurant.id,
+        name: savedRestaurant.name,
+        slug: savedRestaurant.slug,
+        bankName: savedRestaurant.bankName,
+        accountNumber: savedRestaurant.accountNumber,
+        accountName: savedRestaurant.accountName,
+        bankInstructions: savedRestaurant.bankInstructions
+      }
+    });
   } catch (error) {
     next(error);
   }

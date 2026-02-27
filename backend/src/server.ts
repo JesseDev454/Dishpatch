@@ -9,7 +9,19 @@ const bootstrap = async () => {
   await AppDataSource.initialize();
   const dbResult = await AppDataSource.query("SELECT current_database() AS current_database");
   const currentDatabase = Array.isArray(dbResult) && dbResult[0]?.current_database ? dbResult[0].current_database : "unknown";
+  const databaseHost = (() => {
+    try {
+      return new URL(env.db.databaseUrl).hostname;
+    } catch {
+      return "unknown";
+    }
+  })();
+
   console.log(`[startup] Connected database: ${currentDatabase}`);
+  console.log(`[startup] Database host: ${databaseHost}`);
+  if (env.nodeEnv === "production" && databaseHost.includes("neon.tech") && !databaseHost.includes("-pooler")) {
+    console.warn("[startup] DATABASE_URL appears to use a direct Neon host. Prefer a pooled Neon URL for lower auth latency.");
+  }
 
   const app = createApp();
   const httpServer = createServer(app);

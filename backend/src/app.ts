@@ -6,6 +6,7 @@ import cookieParser from "cookie-parser";
 import { env } from "./config/env";
 import apiRoutes from "./routes";
 import { errorHandler } from "./middleware/error-handler";
+import { requestTiming } from "./middleware/request-timing";
 
 export const createApp = () => {
   const app = express();
@@ -40,6 +41,7 @@ export const createApp = () => {
   );
   app.use(express.json());
   app.use(cookieParser());
+  app.use(requestTiming);
 
   app.get("/health", (_req, res) => {
     res.json({ ok: true });

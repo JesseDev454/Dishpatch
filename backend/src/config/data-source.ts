@@ -17,15 +17,14 @@ import { AddItemImageUrl1709200000000 } from "../migrations/1709200000000-AddIte
 import { AddAnalyticsOrderIndexes1709300000000 } from "../migrations/1709300000000-AddAnalyticsOrderIndexes";
 import { TransferFirstPivot1709400000000 } from "../migrations/1709400000000-TransferFirstPivot";
 
-const databaseUrl = process.env.DATABASE_URL;
-if (!databaseUrl) {
-  throw new Error("Missing required environment variable: DATABASE_URL.");
-}
-
 export const AppDataSource = new DataSource({
   type: "postgres",
-  url: databaseUrl,
+  url: env.db.databaseUrl,
   ssl: env.nodeEnv === "production" ? { rejectUnauthorized: false } : undefined,
+  extra: {
+    connectionTimeoutMillis: env.db.connectTimeoutMs,
+    max: env.db.poolMax
+  },
 
   entities: [Restaurant, User, Category, Item, Order, OrderItem, Payment],
   migrations: [

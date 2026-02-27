@@ -29,6 +29,19 @@ const loginSchema = z.object({
   password: z.string().min(1, "Password is required")
 });
 
+const createAuthStepLogger = (flow: "register" | "login") => {
+  const startedAt = process.hrtime.bigint();
+
+  const logStep = (step: string): void => {
+    const elapsedMs = Number((process.hrtime.bigint() - startedAt) / BigInt(1_000_000));
+    console.log(`[auth.${flow}] +${elapsedMs}ms ${step}`);
+  };
+
+  return {
+    logStep
+  };
+};
+
 const logRefreshFailure = (reason: string): void => {
   console.warn(`[auth.refresh] failed: ${reason}`);
 };
@@ -55,8 +68,10 @@ const bankDetailsSchema = z.object({
   bankInstructions: z.string().trim().optional().nullable()
 });
 
-const getUniqueSlug = async (baseName: string): Promise<string> => {
-  const restaurantRepo = AppDataSource.getRepository(Restaurant);
+const getUniqueSlug = async (
+  baseName: string,
+  restaurantRepo = AppDataSource.getRepository(Restaurant)
+): Promise<string> => {
   const baseSlug = slugify(baseName);
   let candidate = baseSlug;
   let index = 2;
@@ -70,20 +85,31 @@ const getUniqueSlug = async (baseName: string): Promise<string> => {
 };
 
 router.post("/register", async (req, res, next) => {
+  const { logStep } = createAuthStepLogger("register");
+  logStep("start request");
+
   try {
     const parsed = registerSchema.parse(req.body);
 
     const userRepo = AppDataSource.getRepository(User);
+    logStep("before DB lookup (find user)");
     const alreadyExists = await userRepo.exists({ where: { email: parsed.email.toLowerCase() } });
+    logStep("after DB lookup");
 
     if (alreadyExists) {
       throw new HttpError(409, "Email already in use");
     }
 
-    const savedUser = await AppDataSource.transaction(async (trx) => {
-      const slug = await getUniqueSlug(parsed.restaurantName);
+    logStep("before password hash");
+    const passwordHash = await hashPassword(parsed.password);
+    logStep("after hash");
 
-      const restaurant = trx.getRepository(Restaurant).create({
+    logStep("before insert/save");
+    const registration = await AppDataSource.transaction(async (trx) => {
+      const restaurantRepo = trx.getRepository(Restaurant);
+      const slug = await getUniqueSlug(parsed.restaurantName, restaurantRepo);
+
+      const restaurant = restaurantRepo.create({
         name: parsed.restaurantName.trim(),
         slug
       });
@@ -93,21 +119,19 @@ router.post("/register", async (req, res, next) => {
       const user = trx.getRepository(User).create({
         restaurantId: savedRestaurant.id,
         email: parsed.email.toLowerCase(),
-        passwordHash: await hashPassword(parsed.password),
+        passwordHash,
         role: "ADMIN"
       });
 
-      return trx.save(user);
-    });
+      const savedUser = await trx.save(user);
 
-    const user = await userRepo.findOne({
-      where: { id: savedUser.id },
-      relations: { restaurant: true }
+      return { savedUser, savedRestaurant };
     });
-
-    if (!user) {
-      throw new HttpError(500, "Registration failed");
-    }
+    logStep("after save");
+    const user = {
+      ...registration.savedUser,
+      restaurant: registration.savedRestaurant
+    } as User;
 
     const jwtPayload = {
       userId: user.id,
@@ -119,6 +143,7 @@ router.post("/register", async (req, res, next) => {
     const refreshToken = generateRefreshToken(jwtPayload);
     setRefreshCookie(res, refreshToken);
 
+    logStep("before response sent");
     res.status(201).json({
       accessToken,
       user: userSafe(user)
@@ -129,23 +154,33 @@ router.post("/register", async (req, res, next) => {
 });
 
 router.post("/login", async (req, res, next) => {
+  const { logStep } = createAuthStepLogger("login");
+  logStep("start request");
+
   try {
     const parsed = loginSchema.parse(req.body);
 
     const userRepo = AppDataSource.getRepository(User);
+    logStep("before DB lookup (find user)");
     const user = await userRepo.findOne({
       where: { email: parsed.email.toLowerCase() },
       relations: { restaurant: true }
     });
+    logStep("after DB lookup");
 
     if (!user) {
       throw new HttpError(401, "Invalid credentials");
     }
 
+    logStep("before password compare");
     const isValid = await comparePassword(parsed.password, user.passwordHash);
+    logStep("after compare");
     if (!isValid) {
       throw new HttpError(401, "Invalid credentials");
     }
+
+    logStep("before insert/save (n/a)");
+    logStep("after save (n/a)");
 
     const jwtPayload = {
       userId: user.id,
@@ -157,6 +192,7 @@ router.post("/login", async (req, res, next) => {
     const refreshToken = generateRefreshToken(jwtPayload);
     setRefreshCookie(res, refreshToken);
 
+    logStep("before response sent");
     res.json({ accessToken, user: userSafe(user) });
   } catch (error) {
     next(error);

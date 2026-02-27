@@ -68,6 +68,9 @@ const databaseNameFromUrl = (() => {
 const frontendUrls = parseFrontendUrls(getValue(["FRONTEND_URL"], "http://localhost:5173"));
 const configuredExpiryMinutes = parsePositiveInt(process.env.ORDER_EXPIRY_MINUTES, 30);
 const expiryMinutes = isTest ? Math.max(configuredExpiryMinutes, 30) : configuredExpiryMinutes;
+const bcryptSaltRounds = parsePositiveInt(process.env.BCRYPT_SALT_ROUNDS, 10);
+const dbConnectTimeoutMs = parsePositiveInt(process.env.DB_CONNECT_TIMEOUT_MS, 10_000);
+const dbPoolMax = parsePositiveInt(process.env.DB_POOL_MAX, 10);
 
 export const env = {
   nodeEnv,
@@ -75,7 +78,12 @@ export const env = {
   frontendUrl: frontendUrls[0],
   frontendUrls,
   db: {
-    databaseUrl
+    databaseUrl,
+    connectTimeoutMs: dbConnectTimeoutMs,
+    poolMax: dbPoolMax
+  },
+  auth: {
+    bcryptSaltRounds
   },
   jwt: {
     accessSecret: getValue(["JWT_ACCESS_SECRET"], "dev_access_secret_change_me"),

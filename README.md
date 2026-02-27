@@ -258,10 +258,13 @@ Set in `backend/.env`:
 - `PORT` (default `4000`)
 - `FRONTEND_URL` (single URL or comma-separated URLs, default `http://localhost:5173`)
 - `DATABASE_URL` (required in production)
+- `DB_CONNECT_TIMEOUT_MS` (default `10000`)
+- `DB_POOL_MAX` (default `10`)
 - `JWT_ACCESS_SECRET`
 - `JWT_REFRESH_SECRET`
 - `JWT_ACCESS_EXPIRES` (default `15m`)
 - `JWT_REFRESH_EXPIRES` (default `7d`)
+- `BCRYPT_SALT_ROUNDS` (default `10`)
 - `RESEND_API_KEY`
 - `EMAIL_FROM`
 - `APP_BASE_URL` (default `http://localhost:5173`)
@@ -274,9 +277,9 @@ Set in `backend/.env`:
 ## Deployment (Neon + Render + Vercel)
 ### 1) Neon (Database)
 1. Create a Neon Postgres project/database.
-2. Copy Neon connection string and include SSL mode:
+2. Copy Neon pooled connection string and include SSL mode:
    ```env
-   DATABASE_URL=postgresql://<user>:<password>@<host>/<db>?sslmode=require
+   DATABASE_URL=postgresql://<user>:<password>@<host>-pooler.<region>.aws.neon.tech/<db>?sslmode=require
    ```
 3. Use this `DATABASE_URL` on Render backend.
 
@@ -291,12 +294,15 @@ Render env vars:
 ```env
 NODE_ENV=production
 PORT=10000
-DATABASE_URL=postgresql://<user>:<password>@<host>/<db>?sslmode=require
+DATABASE_URL=postgresql://<user>:<password>@<host>-pooler.<region>.aws.neon.tech/<db>?sslmode=require
+DB_CONNECT_TIMEOUT_MS=10000
+DB_POOL_MAX=10
 FRONTEND_URL=https://dishpatch.vercel.app
 JWT_ACCESS_SECRET=<strong-secret>
 JWT_REFRESH_SECRET=<strong-secret>
 JWT_ACCESS_EXPIRES=15m
 JWT_REFRESH_EXPIRES=7d
+BCRYPT_SALT_ROUNDS=10
 PAYSTACK_SECRET_KEY=sk_test_...
 PAYSTACK_CALLBACK_URL=https://dishpatch.vercel.app/payment/callback
 PAYSTACK_BASE_URL=https://api.paystack.co
@@ -312,6 +318,7 @@ ORDER_EXPIRY_JOB_INTERVAL_SECONDS=60
 
 Notes:
 - Backend is Postgres-only and reads `DATABASE_URL`.
+- In production with Neon, use the pooled `-pooler` host to reduce auth latency.
 - In `NODE_ENV=production`, startup and migrations fail fast if `DATABASE_URL` is missing.
 - `start:render` runs migrations before starting the server.
 - CORS and Socket.IO origin checks use `FRONTEND_URL`.

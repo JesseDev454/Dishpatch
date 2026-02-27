@@ -71,4 +71,22 @@ describe("Auth", () => {
     expect(response.status).toBe(401);
     expect(response.body.message).toBe("Unauthorized");
   });
+
+  it("refresh returns a new access token when refresh cookie exists", async () => {
+    const agent = request.agent(app);
+
+    const registerResponse = await agent.post("/auth/register").send({
+      restaurantName: "Kaduna Foods",
+      email: "admin@kadunafoods.com",
+      password: "StrongPass123"
+    });
+
+    expect(registerResponse.status).toBe(201);
+
+    const refreshResponse = await agent.post("/auth/refresh").send();
+
+    expect(refreshResponse.status).toBe(200);
+    expect(refreshResponse.body.accessToken).toBeTruthy();
+    expect(refreshResponse.body.user.email).toBe("admin@kadunafoods.com");
+  });
 });

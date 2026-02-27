@@ -4,10 +4,10 @@ import { useAuth } from "../context/AuthContext";
 import { PageLoader } from "./ui/PageLoader";
 
 export const ProtectedRoute = ({ children }: { children: ReactNode }) => {
-  const { loading, user } = useAuth();
+  const { loading, user, bootstrapNotice } = useAuth();
 
   if (loading) {
-    return <PageLoader message="Loading account..." />;
+    return <PageLoader message="Loading account..." notice={bootstrapNotice ?? undefined} />;
   }
 
   if (!user) {

@@ -13,3 +13,7 @@ export const getApiStatus = (error: unknown): number | undefined => {
   }
   return undefined;
 };
+
+export const isApiNetworkError = (error: unknown): boolean => {
+  return axios.isAxiosError(error) && !error.response;
+};

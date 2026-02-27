@@ -32,7 +32,8 @@ type SocketSession =
 
 const allowedOriginPattern = /^http:\/\/localhost:\d+$/;
 const normalizeOrigin = (origin: string): string => origin.replace(/\/$/, "");
-const allowedOrigins = new Set(env.frontendUrls.map(normalizeOrigin));
+const requiredProductionOrigin = "https://dishpatch.vercel.app";
+const allowedOrigins = new Set([...env.frontendUrls.map(normalizeOrigin), normalizeOrigin(requiredProductionOrigin)]);
 
 const resolveToken = (socket: Socket): string | null => {
   const fromAuth =

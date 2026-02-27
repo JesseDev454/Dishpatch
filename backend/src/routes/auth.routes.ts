@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { JsonWebTokenError, TokenExpiredError } from "jsonwebtoken";
 import { z } from "zod";
 import { AppDataSource } from "../config/data-source";
 import { Restaurant } from "../entities/Restaurant";
@@ -27,6 +28,10 @@ const loginSchema = z.object({
   email: z.string().email("Valid email is required"),
   password: z.string().min(1, "Password is required")
 });
+
+const logRefreshFailure = (reason: string): void => {
+  console.warn(`[auth.refresh] failed: ${reason}`);
+};
 
 const userSafe = (user: User) => ({
   id: user.id,
@@ -163,11 +168,26 @@ router.post("/refresh", async (req, res, next) => {
     const token = req.cookies?.refreshToken as string | undefined;
 
     if (!token) {
+      logRefreshFailure("missing_cookie");
       throw new HttpError(401, "Unauthorized");
     }
 
-    const payload = verifyRefreshToken(token);
+    let payload: ReturnType<typeof verifyRefreshToken>;
+    try {
+      payload = verifyRefreshToken(token);
+    } catch (error) {
+      if (error instanceof TokenExpiredError) {
+        logRefreshFailure("expired_token");
+      } else if (error instanceof JsonWebTokenError) {
+        logRefreshFailure("invalid_token");
+      } else {
+        logRefreshFailure("token_verification_error");
+      }
+      throw new HttpError(401, "Unauthorized");
+    }
+
     if (payload.type !== "refresh") {
+      logRefreshFailure("invalid_token_type");
       throw new HttpError(401, "Unauthorized");
     }
 
@@ -178,6 +198,7 @@ router.post("/refresh", async (req, res, next) => {
     });
 
     if (!user) {
+      logRefreshFailure("user_not_found");
       throw new HttpError(401, "Unauthorized");
     }
 

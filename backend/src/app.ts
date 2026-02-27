@@ -12,7 +12,8 @@ export const createApp = () => {
 
   const allowedOriginPattern = /^http:\/\/localhost:\d+$/;
   const normalizeOrigin = (origin: string): string => origin.replace(/\/$/, "");
-  const allowedOrigins = new Set(env.frontendUrls.map(normalizeOrigin));
+  const requiredProductionOrigin = "https://dishpatch.vercel.app";
+  const allowedOrigins = new Set([...env.frontendUrls.map(normalizeOrigin), normalizeOrigin(requiredProductionOrigin)]);
 
   app.use(helmet());
   app.use(
@@ -32,7 +33,9 @@ export const createApp = () => {
 
         callback(new Error("Origin not allowed by CORS"));
       },
-      credentials: true
+      credentials: true,
+      methods: ["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
+      allowedHeaders: ["Authorization", "Content-Type"]
     })
   );
   app.use(express.json());

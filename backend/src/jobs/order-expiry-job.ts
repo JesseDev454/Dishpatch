@@ -60,6 +60,10 @@ export const runExpirySweepOnce = async (
 };
 
 export const startOrderExpiryJob = (dataSource: DataSource = AppDataSource): NodeJS.Timeout => {
+  if (!dataSource.isInitialized) {
+    throw new Error("Order expiry job requires an initialized DataSource.");
+  }
+
   const intervalMs = env.orders.expiryJobIntervalSeconds * 1000;
 
   const run = () => {

@@ -4,11 +4,46 @@ import { createApp } from "./app";
 import { createServer } from "http";
 import { createRealtimeServer } from "./realtime/socket";
 import { startOrderExpiryJob } from "./jobs/order-expiry-job";
+import { getCoreSchemaRegclass, getCurrentDatabaseName, getMissingCoreTables } from "./utils/schema-sanity";
+
+const formatMigrationNames = (migrations: { name?: string }[]): string => {
+  return migrations.map((migration) => migration.name ?? "unknown_migration").join(", ");
+};
+
+const runStartupMigrations = async (): Promise<void> => {
+  const migrations = await AppDataSource.runMigrations();
+  if (migrations.length === 0) {
+    console.log("[startup] No pending migrations.");
+    return;
+  }
+
+  console.log(`[startup] Applied migrations: ${formatMigrationNames(migrations)}`);
+};
+
+const ensureCoreSchemaReady = async (): Promise<void> => {
+  const initialSchema = await getCoreSchemaRegclass(AppDataSource);
+  const initialMissingTables = getMissingCoreTables(initialSchema);
+
+  if (initialMissingTables.length > 0) {
+    console.error(`[startup] Schema missing: ${initialMissingTables.join(", ")}`);
+  }
+
+  await runStartupMigrations();
+
+  const schemaAfterMigrations = await getCoreSchemaRegclass(AppDataSource);
+  const missingTables = getMissingCoreTables(schemaAfterMigrations);
+
+  if (missingTables.length > 0) {
+    console.error(`[startup] Schema missing: ${missingTables.join(", ")}`);
+    throw new Error(`Core schema missing after migrations: ${missingTables.join(", ")}`);
+  }
+
+  console.log("[startup] Schema sanity check passed for restaurants, users, orders.");
+};
 
 const bootstrap = async () => {
   await AppDataSource.initialize();
-  const dbResult = await AppDataSource.query("SELECT current_database() AS current_database");
-  const currentDatabase = Array.isArray(dbResult) && dbResult[0]?.current_database ? dbResult[0].current_database : "unknown";
+  const currentDatabase = await getCurrentDatabaseName(AppDataSource);
   const databaseHost = (() => {
     try {
       return new URL(env.db.databaseUrl).hostname;
@@ -23,10 +58,13 @@ const bootstrap = async () => {
     console.warn("[startup] DATABASE_URL appears to use a direct Neon host. Prefer a pooled Neon URL for lower auth latency.");
   }
 
+  await ensureCoreSchemaReady();
+
   const app = createApp();
   const httpServer = createServer(app);
   createRealtimeServer(httpServer);
   startOrderExpiryJob(AppDataSource);
+  console.log("[startup] Order expiry job started.");
 
   httpServer.listen(env.port, () => {
     console.log(`[startup] Server address: http://0.0.0.0:${env.port}`);
@@ -34,7 +72,14 @@ const bootstrap = async () => {
   });
 };
 
-bootstrap().catch((error) => {
+bootstrap().catch(async (error) => {
   console.error("Failed to bootstrap application", error);
+  if (AppDataSource.isInitialized) {
+    try {
+      await AppDataSource.destroy();
+    } catch (destroyError) {
+      console.error("Failed to close database connection after bootstrap failure", destroyError);
+    }
+  }
   process.exit(1);
 });

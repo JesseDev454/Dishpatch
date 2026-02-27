@@ -16,6 +16,7 @@ import { AddPaymentEmailMetadata1709100000000 } from "../migrations/170910000000
 import { AddItemImageUrl1709200000000 } from "../migrations/1709200000000-AddItemImageUrl";
 import { AddAnalyticsOrderIndexes1709300000000 } from "../migrations/1709300000000-AddAnalyticsOrderIndexes";
 import { TransferFirstPivot1709400000000 } from "../migrations/1709400000000-TransferFirstPivot";
+import { EnsureCoreSchema1709500000000 } from "../migrations/1709500000000-EnsureCoreSchema";
 
 export const AppDataSource = new DataSource({
   type: "postgres",
@@ -36,7 +37,8 @@ export const AppDataSource = new DataSource({
     AddPaymentEmailMetadata1709100000000,
     AddItemImageUrl1709200000000,
     AddAnalyticsOrderIndexes1709300000000,
-    TransferFirstPivot1709400000000
+    TransferFirstPivot1709400000000,
+    EnsureCoreSchema1709500000000
   ],
   synchronize: false,
   logging: false

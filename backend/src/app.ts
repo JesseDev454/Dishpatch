@@ -7,6 +7,8 @@ import { env } from "./config/env";
 import apiRoutes from "./routes";
 import { errorHandler } from "./middleware/error-handler";
 import { requestTiming } from "./middleware/request-timing";
+import { AppDataSource } from "./config/data-source";
+import { getCoreSchemaCounts, getCoreSchemaRegclass, getCurrentDatabaseName } from "./utils/schema-sanity";
 
 export const createApp = () => {
   const app = express();
@@ -45,6 +47,30 @@ export const createApp = () => {
 
   app.get("/health", (_req, res) => {
     res.json({ ok: true });
+  });
+
+  app.get("/debug/schema", async (_req, res, next) => {
+    try {
+      if (!AppDataSource.isInitialized) {
+        res.status(503).json({ message: "Database not initialized" });
+        return;
+      }
+
+      const [currentDatabase, tables] = await Promise.all([
+        getCurrentDatabaseName(AppDataSource),
+        getCoreSchemaRegclass(AppDataSource)
+      ]);
+
+      const counts = await getCoreSchemaCounts(AppDataSource, tables);
+
+      res.json({
+        currentDatabase,
+        tables,
+        counts
+      });
+    } catch (error) {
+      next(error);
+    }
   });
 
   app.use("/", apiRoutes);

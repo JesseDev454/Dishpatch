@@ -285,9 +285,9 @@ Set in `backend/.env`:
 
 ### 2) Render (Backend)
 Create a Render Web Service from this repo with:
-- Root Directory: `backend`
-- Build Command: `npm install && npm run build`
-- Start Command: `npm run start:render`
+- Root Directory: repo root
+- Build Command: `npm ci --include=dev && npm run build`
+- Start Command: `npm --prefix backend run start:migrate`
 - Auto Deploy: enabled
 
 Render env vars:

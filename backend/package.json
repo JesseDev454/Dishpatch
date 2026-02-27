@@ -10,7 +10,7 @@
     "build": "tsc -p tsconfig.build.json",
     "start": "node dist/index.js",
     "start:migrate": "npm run migration:run && npm start",
-    "start:render": "npm run migration:run:prod && npm run start",
+    "start:render": "npm run start:migrate",
     "typeorm": "typeorm-ts-node-commonjs -d src/config/data-source.ts",
     "migration:generate": "npm run typeorm -- migration:generate src/migrations/AutoMigration",
     "migration:run": "npm run typeorm -- migration:run",

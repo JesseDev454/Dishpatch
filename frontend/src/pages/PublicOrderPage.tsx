@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Copy, ShieldCheck, ShoppingCart } from "lucide-react";
-import { useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import logo from "@/assets/Dishpatch-logo-1.png";
 import { useToast } from "../context/ToastContext";
@@ -98,6 +98,7 @@ const getTransferStatusLabel = (order: CreatedOrder | null): string => {
 
 export const PublicOrderPage = () => {
   const { slug } = useParams();
+  const navigate = useNavigate();
   const { showToast } = useToast();
   const reducedMotion = useReducedMotion() ?? false;
   const categoryRefs = useRef<Record<number, HTMLDivElement | null>>({});
@@ -299,6 +300,7 @@ export const PublicOrderPage = () => {
           : prev
       );
       showToast("Restaurant notified. Awaiting confirmation.", "success");
+      navigate(`/track/${order.id}`);
     } catch (error: any) {
       showToast(error?.response?.data?.message ?? "Could not notify restaurant", "error");
     } finally {
@@ -336,7 +338,7 @@ export const PublicOrderPage = () => {
   const primaryActionLabel = order
     ? order.customerMarkedPaidAt
       ? "Awaiting Confirmation"
-      : "I've Paid — Notify Restaurant"
+      : "I've Paid - Notify Restaurant"
     : isSubmitting
       ? "Creating..."
       : "Place Order";

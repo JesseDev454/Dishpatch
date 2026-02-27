@@ -182,4 +182,56 @@ describe("Public Menu and Transfer Orders", () => {
     expect(markPaid.body.order.status).toBe("PENDING_TRANSFER");
     expect(markPaid.body.order.customerMarkedPaidAt).toBeTruthy();
   });
+
+  it("returns public order tracking payload for customer status polling", async () => {
+    const auth = await registerAndGetToken(app, {
+      restaurantName: "Public Tracking Restaurant",
+      email: "public-tracking@dishpatch.test",
+      password: "StrongPass123"
+    });
+
+    const category = await request(app)
+      .post("/categories")
+      .set("Authorization", `Bearer ${auth.accessToken}`)
+      .send({ name: "Tracking Category", sortOrder: 0 });
+    expect(category.status).toBe(201);
+
+    const item = await request(app)
+      .post("/items")
+      .set("Authorization", `Bearer ${auth.accessToken}`)
+      .send({
+        categoryId: category.body.category.id,
+        name: "Tracking Item",
+        description: null,
+        price: 4200,
+        isAvailable: true
+      });
+    expect(item.status).toBe(201);
+
+    const orderResponse = await request(app)
+      .post(`/public/restaurants/${auth.user.restaurant.slug}/orders`)
+      .send({
+        type: "PICKUP",
+        customerName: "Tracking Customer",
+        customerPhone: "08044444444",
+        deliveryAddress: null,
+        items: [{ itemId: item.body.item.id, quantity: 1 }]
+      });
+    expect(orderResponse.status).toBe(201);
+
+    const tracked = await request(app).get(`/public/orders/${orderResponse.body.order.id}`);
+    expect(tracked.status).toBe(200);
+    expect(tracked.body.order).toEqual(
+      expect.objectContaining({
+        id: orderResponse.body.order.id,
+        status: "PENDING_TRANSFER",
+        type: "PICKUP",
+        customerName: "Tracking Customer",
+        totalAmount: "4200.00"
+      })
+    );
+    expect(tracked.body.order.updatedAt).toBeTruthy();
+    expect(Array.isArray(tracked.body.items)).toBe(true);
+    expect(tracked.body.items).toHaveLength(1);
+  });
 });

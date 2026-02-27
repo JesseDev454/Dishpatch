@@ -293,6 +293,47 @@ router.post("/orders/:id/mark-paid", async (req, res, next) => {
   }
 });
 
+router.get("/orders/:id", async (req, res, next) => {
+  try {
+    const id = Number(req.params.id);
+    if (!Number.isInteger(id) || id < 1) {
+      throw new HttpError(400, "Invalid order id");
+    }
+
+    const orderRepo = AppDataSource.getRepository(Order);
+    const order = await orderRepo.findOne({
+      where: { id },
+      relations: { orderItems: true }
+    });
+
+    if (!order) {
+      throw new HttpError(404, "Order not found");
+    }
+
+    res.json({
+      order: {
+        id: order.id,
+        status: order.status,
+        type: order.type,
+        customerName: order.customerName,
+        customerMarkedPaidAt: order.customerMarkedPaidAt,
+        totalAmount: order.totalAmount,
+        updatedAt: order.updatedAt
+      },
+      items: (order.orderItems ?? []).map((line) => ({
+        id: line.id,
+        itemId: line.itemId,
+        nameSnapshot: line.nameSnapshot,
+        quantity: line.quantity,
+        unitPriceSnapshot: line.unitPriceSnapshot,
+        lineTotal: line.lineTotal
+      }))
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
 router.get("/receipts/:reference", async (req, res, next) => {
   try {
     const reference = String(req.params.reference ?? "").trim();

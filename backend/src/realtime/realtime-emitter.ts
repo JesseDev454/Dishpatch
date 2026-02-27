@@ -2,6 +2,13 @@ import { Server as SocketIOServer } from "socket.io";
 import { OrderSummary } from "./order-summary";
 
 const restaurantRoom = (restaurantId: number): string => `restaurant:${restaurantId}`;
+const orderRoom = (orderId: number): string => `order:${orderId}`;
+
+const toOrderStatusPayload = (order: OrderSummary) => ({
+  orderId: order.id,
+  status: order.status,
+  updatedAt: order.updatedAt
+});
 
 type RealtimeEmitter = {
   emitOrderPaid: (order: OrderSummary) => void;
@@ -40,13 +47,15 @@ export const emitOrdersSnapshot = (restaurantId: number, orders: OrderSummary[])
 export const createSocketEmitter = (io: SocketIOServer): RealtimeEmitter => ({
   emitOrderPaid: (order) => {
     io.to(restaurantRoom(order.restaurantId)).emit("order:paid", order);
+    io.to(orderRoom(order.id)).emit("order.status.updated", toOrderStatusPayload(order));
   },
   emitOrderUpdated: (order) => {
     io.to(restaurantRoom(order.restaurantId)).emit("order:updated", order);
+    io.to(orderRoom(order.id)).emit("order.status.updated", toOrderStatusPayload(order));
   },
   emitOrdersSnapshot: (restaurantId, orders) => {
     io.to(restaurantRoom(restaurantId)).emit("orders:snapshot", orders);
   }
 });
 
-export { restaurantRoom };
+export { orderRoom, restaurantRoom };

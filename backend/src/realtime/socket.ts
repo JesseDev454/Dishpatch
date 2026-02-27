@@ -6,7 +6,7 @@ import { AppDataSource } from "../config/data-source";
 import { User } from "../entities/User";
 import { Order, ORDER_STATUSES } from "../entities/Order";
 import { verifyAccessToken } from "../utils/jwt";
-import { createSocketEmitter, restaurantRoom, setRealtimeEmitter } from "./realtime-emitter";
+import { createSocketEmitter, orderRoom, restaurantRoom, setRealtimeEmitter } from "./realtime-emitter";
 import { toOrderSummary } from "./order-summary";
 
 type SocketAuthUser = {
@@ -14,6 +14,21 @@ type SocketAuthUser = {
   restaurantId: number;
   role: "ADMIN";
 };
+
+type PublicSubscribePayload = {
+  orderId?: unknown;
+};
+
+type SubscribeAck = (response: { ok: boolean; message?: string }) => void;
+
+type SocketSession =
+  | {
+      kind: "admin";
+      authUser: SocketAuthUser;
+    }
+  | {
+      kind: "public";
+    };
 
 const allowedOriginPattern = /^http:\/\/localhost:\d+$/;
 const normalizeOrigin = (origin: string): string => origin.replace(/\/$/, "");
@@ -79,13 +94,14 @@ export const createRealtimeServer = (httpServer: HttpServer): SocketIOServer => 
   });
 
   io.use(async (socket, next) => {
-    try {
-      const token = resolveToken(socket);
-      if (!token) {
-        next(new Error("Unauthorized"));
-        return;
-      }
+    const token = resolveToken(socket);
+    if (!token) {
+      socket.data.session = { kind: "public" } as SocketSession;
+      next();
+      return;
+    }
 
+    try {
       const payload = verifyAccessToken(token);
       if (payload.type !== "access") {
         next(new Error("Unauthorized"));
@@ -105,11 +121,14 @@ export const createRealtimeServer = (httpServer: HttpServer): SocketIOServer => 
         return;
       }
 
-      socket.data.authUser = {
-        userId: payload.userId,
-        restaurantId: payload.restaurantId,
-        role: payload.role
-      } as SocketAuthUser;
+      socket.data.session = {
+        kind: "admin",
+        authUser: {
+          userId: payload.userId,
+          restaurantId: payload.restaurantId,
+          role: payload.role
+        }
+      } as SocketSession;
 
       next();
     } catch {
@@ -118,21 +137,45 @@ export const createRealtimeServer = (httpServer: HttpServer): SocketIOServer => 
   });
 
   io.on("connection", async (socket) => {
-    const authUser = socket.data.authUser as SocketAuthUser | undefined;
-    if (!authUser) {
+    const session = socket.data.session as SocketSession | undefined;
+    if (!session) {
       socket.disconnect(true);
       return;
     }
 
-    const room = restaurantRoom(authUser.restaurantId);
-    await socket.join(room);
+    if (session.kind === "admin") {
+      const room = restaurantRoom(session.authUser.restaurantId);
+      await socket.join(room);
 
-    try {
-      const snapshot = await getRecentOrderSnapshot(authUser.restaurantId);
-      socket.emit("orders:snapshot", snapshot);
-    } catch (error) {
-      console.error("Failed to emit orders snapshot", error);
+      try {
+        const snapshot = await getRecentOrderSnapshot(session.authUser.restaurantId);
+        socket.emit("orders:snapshot", snapshot);
+      } catch (error) {
+        console.error("Failed to emit orders snapshot", error);
+      }
     }
+
+    socket.on("order:subscribe", async (payload: PublicSubscribePayload, ack?: SubscribeAck) => {
+      const orderId = Number(payload?.orderId);
+      if (!Number.isInteger(orderId) || orderId < 1) {
+        ack?.({ ok: false, message: "Invalid order id" });
+        return;
+      }
+
+      try {
+        const orderRepo = AppDataSource.getRepository(Order);
+        const exists = await orderRepo.exist({ where: { id: orderId } });
+        if (!exists) {
+          ack?.({ ok: false, message: "Order not found" });
+          return;
+        }
+
+        await socket.join(orderRoom(orderId));
+        ack?.({ ok: true });
+      } catch {
+        ack?.({ ok: false, message: "Subscription failed" });
+      }
+    });
   });
 
   setRealtimeEmitter(createSocketEmitter(io));

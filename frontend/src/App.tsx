@@ -8,6 +8,7 @@ const LoginPage = lazy(() => import("./pages/LoginPage").then((mod) => ({ defaul
 const RegisterPage = lazy(() => import("./pages/RegisterPage").then((mod) => ({ default: mod.RegisterPage })));
 const DashboardPage = lazy(() => import("./pages/DashboardPage").then((mod) => ({ default: mod.DashboardPage })));
 const PublicOrderPage = lazy(() => import("./pages/PublicOrderPage").then((mod) => ({ default: mod.PublicOrderPage })));
+const OrderTrackingPage = lazy(() => import("./pages/OrderTrackingPage").then((mod) => ({ default: mod.OrderTrackingPage })));
 const LiveOrdersPage = lazy(() => import("./pages/LiveOrdersPage").then((mod) => ({ default: mod.LiveOrdersPage })));
 const ReceiptPage = lazy(() => import("./pages/ReceiptPage").then((mod) => ({ default: mod.ReceiptPage })));
 const DashboardAnalyticsPage = lazy(() =>
@@ -36,6 +37,7 @@ export default function App() {
           <Route path="/register" element={<RegisterPage />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/r/:slug" element={<PublicOrderPage />} />
+          <Route path="/track/:orderId" element={<OrderTrackingPage />} />
           <Route path="/receipt/:reference" element={<ReceiptPage />} />
           <Route
             path="/dashboard"

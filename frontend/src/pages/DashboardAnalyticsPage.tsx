@@ -11,7 +11,6 @@ import { Skeleton } from "../components/ui/Skeleton";
 import { useAuth } from "../context/AuthContext";
 import { useToast } from "../context/ToastContext";
 import { getApiErrorMessage, getApiStatus } from "../lib/errors";
-import { setAccessToken, api } from "../lib/api";
 import { getOverview, getTimeseries, getTopItems } from "../lib/analytics";
 import {
   AnalyticsOverviewResponse,
@@ -169,22 +168,8 @@ export const DashboardAnalyticsPage = () => {
       setTopItems(topItemsResponse.items);
     } catch (error: unknown) {
       if (getApiStatus(error) === 401) {
-        try {
-          const refreshResponse = await api.post<{ accessToken: string }>("/auth/refresh");
-          setAccessToken(refreshResponse.data.accessToken);
-          const [overviewResponse, timeseriesResponse, topItemsResponse] = await Promise.all([
-            getOverview(range),
-            getTimeseries(range),
-            getTopItems(range, 5)
-          ]);
-          setOverview(overviewResponse);
-          setTimeseries(timeseriesResponse.series);
-          setTopItems(topItemsResponse.items);
-          return;
-        } catch {
-          await logout();
-          return;
-        }
+        await logout();
+        return;
       }
 
       const message = getApiErrorMessage(error, "Could not load analytics. Retry.");

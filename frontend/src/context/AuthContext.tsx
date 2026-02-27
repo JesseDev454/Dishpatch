@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
-import { api, getStoredAccessToken, setAccessToken } from "../lib/api";
+import { api, getStoredAccessToken, refreshAuthSession, setAccessToken, setRefreshToken } from "../lib/api";
 import { getApiStatus, isApiNetworkError } from "../lib/errors";
 import { AuthUser } from "../types";
 
@@ -30,8 +30,14 @@ const BOOTSTRAP_RETRY_NOTICE = "Backend is waking up / network issue. Retrying..
 const INITIAL_RETRY_DELAY_MS = 1_000;
 const MAX_RETRY_DELAY_MS = 20_000;
 
-const applySession = (accessToken: string, user: AuthUser, setUser: (value: AuthUser | null) => void) => {
+const applySession = (
+  accessToken: string,
+  refreshToken: string,
+  user: AuthUser,
+  setUser: (value: AuthUser | null) => void
+) => {
   setAccessToken(accessToken);
+  setRefreshToken(refreshToken);
   setUser(user);
 };
 
@@ -77,8 +83,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         }
 
         try {
-          const refreshRes = await api.post<{ accessToken: string; user: AuthUser }>("/auth/refresh");
-          applySession(refreshRes.data.accessToken, refreshRes.data.user, setUser);
+          const refreshRes = await refreshAuthSession();
+          applySession(refreshRes.accessToken, refreshRes.refreshToken, refreshRes.user, setUser);
           return "success";
         } catch (refreshError: unknown) {
           if (isTransientBootstrapError(refreshError)) {
@@ -115,6 +121,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
         if (outcome === "unauthorized") {
           setAccessToken(null);
+          setRefreshToken(null);
           setUser(null);
           setBootstrapNotice(null);
           setLoading(false);
@@ -135,17 +142,17 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   }, []);
 
   const login = async (input: LoginInput) => {
-    const res = await api.post<{ accessToken: string; user: AuthUser }>("/auth/login", input);
+    const res = await api.post<{ accessToken: string; refreshToken: string; user: AuthUser }>("/auth/login", input);
     bootstrapCancelledRef.current = true;
-    applySession(res.data.accessToken, res.data.user, setUser);
+    applySession(res.data.accessToken, res.data.refreshToken, res.data.user, setUser);
     setBootstrapNotice(null);
     setLoading(false);
   };
 
   const register = async (input: RegisterInput) => {
-    const res = await api.post<{ accessToken: string; user: AuthUser }>("/auth/register", input);
+    const res = await api.post<{ accessToken: string; refreshToken: string; user: AuthUser }>("/auth/register", input);
     bootstrapCancelledRef.current = true;
-    applySession(res.data.accessToken, res.data.user, setUser);
+    applySession(res.data.accessToken, res.data.refreshToken, res.data.user, setUser);
     setBootstrapNotice(null);
     setLoading(false);
   };
@@ -156,6 +163,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       await api.post("/auth/logout");
     } finally {
       setAccessToken(null);
+      setRefreshToken(null);
       setUser(null);
       setBootstrapNotice(null);
       setLoading(false);

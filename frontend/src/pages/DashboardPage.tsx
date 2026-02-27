@@ -15,7 +15,7 @@ import { Tabs, TabsList, TabsTrigger } from "../components/ui/Tabs";
 import { useAuth } from "../context/AuthContext";
 import { useToast } from "../context/ToastContext";
 import { getApiErrorMessage, getApiStatus } from "../lib/errors";
-import { api, setAccessToken } from "../lib/api";
+import { api } from "../lib/api";
 import { Category, Item } from "../types";
 
 export const DashboardPage = () => {
@@ -66,6 +66,11 @@ export const DashboardPage = () => {
       setError(null);
       showToast("Dashboard refreshed.", "success");
     } catch (error: unknown) {
+      if (getApiStatus(error) === 401) {
+        await logout();
+        return;
+      }
+
       const message = getApiErrorMessage(error, "Failed to load dashboard data");
       setError(message);
       showToast(message, "error");
@@ -159,6 +164,11 @@ export const DashboardPage = () => {
       await refreshUser();
       showToast("Bank details updated.", "success");
     } catch (error: unknown) {
+      if (getApiStatus(error) === 401) {
+        await logout();
+        return;
+      }
+
       showToast(getApiErrorMessage(error, "Failed to save bank details"), "error");
     } finally {
       setSavingBankDetails(false);
@@ -173,13 +183,7 @@ export const DashboardPage = () => {
         await refreshAll();
       } catch (error: unknown) {
         if (getApiStatus(error) === 401) {
-          try {
-            const refreshRes = await api.post<{ accessToken: string }>("/auth/refresh");
-            setAccessToken(refreshRes.data.accessToken);
-            await refreshAll();
-          } catch {
-            await logout();
-          }
+          await logout();
         } else {
           const message = getApiErrorMessage(error, "Failed to load dashboard data");
           setError(message);

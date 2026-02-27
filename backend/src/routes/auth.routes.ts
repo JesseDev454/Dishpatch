@@ -29,6 +29,10 @@ const loginSchema = z.object({
   password: z.string().min(1, "Password is required")
 });
 
+const refreshSchema = z.object({
+  refreshToken: z.string().min(1).optional()
+});
+
 const createAuthStepLogger = (flow: "register" | "login") => {
   const startedAt = process.hrtime.bigint();
 
@@ -146,6 +150,7 @@ router.post("/register", async (req, res, next) => {
     logStep("before response sent");
     res.status(201).json({
       accessToken,
+      refreshToken,
       user: userSafe(user)
     });
   } catch (error) {
@@ -193,7 +198,7 @@ router.post("/login", async (req, res, next) => {
     setRefreshCookie(res, refreshToken);
 
     logStep("before response sent");
-    res.json({ accessToken, user: userSafe(user) });
+    res.json({ accessToken, refreshToken, user: userSafe(user) });
   } catch (error) {
     next(error);
   }
@@ -201,10 +206,11 @@ router.post("/login", async (req, res, next) => {
 
 router.post("/refresh", async (req, res, next) => {
   try {
-    const token = req.cookies?.refreshToken as string | undefined;
+    const parsed = refreshSchema.parse(req.body ?? {});
+    const token = (req.cookies?.refreshToken as string | undefined) ?? parsed.refreshToken;
 
     if (!token) {
-      logRefreshFailure("missing_cookie");
+      logRefreshFailure("missing_token");
       throw new HttpError(401, "Unauthorized");
     }
 
@@ -248,7 +254,7 @@ router.post("/refresh", async (req, res, next) => {
     const refreshToken = generateRefreshToken(jwtPayload);
     setRefreshCookie(res, refreshToken);
 
-    res.json({ accessToken, user: userSafe(user) });
+    res.json({ accessToken, refreshToken, user: userSafe(user) });
   } catch (error) {
     next(error);
   }

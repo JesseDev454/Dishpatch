@@ -11,7 +11,7 @@ import { AnimatePresence, motion, useReducedMotion } from "../components/ui/moti
 import { Skeleton } from "../components/ui/Skeleton";
 import { useAuth } from "../context/AuthContext";
 import { useToast } from "../context/ToastContext";
-import { getApiErrorMessage } from "../lib/errors";
+import { getApiErrorMessage, getApiStatus } from "../lib/errors";
 import { api, getSocketBaseUrl, getStoredAccessToken } from "../lib/api";
 import { OrderStatus, OrderSummary } from "../types";
 
@@ -85,6 +85,11 @@ export const LiveOrdersPage = () => {
         showToast("Orders refreshed.", "success");
       }
     } catch (error: unknown) {
+      if (getApiStatus(error) === 401) {
+        await logout();
+        return;
+      }
+
       const message = getApiErrorMessage(error, "Failed to load orders");
       setLoadError(message);
       if (withToast) {
@@ -183,6 +188,11 @@ export const LiveOrdersPage = () => {
       setOrders((prev) => upsertOrder(prev, response.data.order));
       showToast(`Order #${orderId} transfer confirmed.`, "success");
     } catch (error: unknown) {
+      if (getApiStatus(error) === 401) {
+        await logout();
+        return;
+      }
+
       showToast(getApiErrorMessage(error, "Failed to confirm transfer"), "error");
     } finally {
       setOrderUpdating(orderId, false);
@@ -201,6 +211,11 @@ export const LiveOrdersPage = () => {
       setOrders((prev) => upsertOrder(prev, response.data.order));
       showToast(`Order #${orderId} transfer rejected.`, "success");
     } catch (error: unknown) {
+      if (getApiStatus(error) === 401) {
+        await logout();
+        return;
+      }
+
       showToast(getApiErrorMessage(error, "Failed to reject transfer"), "error");
     } finally {
       setOrderUpdating(orderId, false);
@@ -221,6 +236,11 @@ export const LiveOrdersPage = () => {
       setOrders((prev) => upsertOrder(prev, response.data.order));
       showToast(`Order #${orderId} updated to ${status.replace(/_/g, " ")}.`, "success");
     } catch (error: unknown) {
+      if (getApiStatus(error) === 401) {
+        await logout();
+        return;
+      }
+
       showToast(getApiErrorMessage(error, "Failed to update order status"), "error");
     } finally {
       setOrderUpdating(orderId, false);

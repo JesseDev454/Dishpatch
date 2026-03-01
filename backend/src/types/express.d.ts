@@ -5,6 +5,7 @@ declare global {
     interface Request {
       authUser?: AuthUser;
       rawBody?: Buffer;
+      requestId?: string;
     }
   }
 }

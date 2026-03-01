@@ -11,6 +11,8 @@ export type SentEmailInfo = {
   messageId: string | null;
 };
 
+const EMAIL_SEND_TIMEOUT_MS = 10_000;
+
 const escapeHtml = (value: string): string =>
   value
     .replace(/&/g, "&amp;")
@@ -42,6 +44,25 @@ const extractMessageId = (response: unknown): string | null => {
   }
 
   return null;
+};
+
+const withTimeout = async <T>(operation: Promise<T>, timeoutMs = EMAIL_SEND_TIMEOUT_MS): Promise<T> => {
+  let timeoutHandle: NodeJS.Timeout | null = null;
+
+  try {
+    return await Promise.race([
+      operation,
+      new Promise<T>((_resolve, reject) => {
+        timeoutHandle = setTimeout(() => {
+          reject(new Error(`Email request timed out after ${timeoutMs}ms`));
+        }, timeoutMs);
+      })
+    ]);
+  } finally {
+    if (timeoutHandle) {
+      clearTimeout(timeoutHandle);
+    }
+  }
 };
 
 const renderItemsTableRows = (items: OrderItem[]): string =>
@@ -115,18 +136,20 @@ export class EmailService {
     }
 
     const receiptLink = `${this.appBaseUrl}/receipt/${payment.reference}`;
-    const response = await this.resend.emails.send({
-      from: this.from,
-      to: order.customerEmail,
-      subject: `Your Dishpatch receipt for Order #${order.id}`,
-      html: renderEmailHtml({
-        heading: "Payment Received",
-        restaurant,
-        order,
-        payment,
-        receiptLink
+    const response = await withTimeout(
+      this.resend.emails.send({
+        from: this.from,
+        to: order.customerEmail,
+        subject: `Your Dishpatch receipt for Order #${order.id}`,
+        html: renderEmailHtml({
+          heading: "Payment Received",
+          restaurant,
+          order,
+          payment,
+          receiptLink
+        })
       })
-    });
+    );
 
     return {
       recipient: order.customerEmail,
@@ -144,18 +167,20 @@ export class EmailService {
     }
 
     const receiptLink = `${this.appBaseUrl}/receipt/${payment.reference}`;
-    const response = await this.resend.emails.send({
-      from: this.from,
-      to: this.restaurantNotificationTo,
-      subject: `New paid order #${order.id} at ${restaurant.name}`,
-      html: renderEmailHtml({
-        heading: "New Paid Order",
-        restaurant,
-        order,
-        payment,
-        receiptLink
+    const response = await withTimeout(
+      this.resend.emails.send({
+        from: this.from,
+        to: this.restaurantNotificationTo,
+        subject: `New paid order #${order.id} at ${restaurant.name}`,
+        html: renderEmailHtml({
+          heading: "New Paid Order",
+          restaurant,
+          order,
+          payment,
+          receiptLink
+        })
       })
-    });
+    );
 
     return {
       recipient: this.restaurantNotificationTo,
@@ -166,22 +191,24 @@ export class EmailService {
   async sendPasswordResetEmail(user: User & { restaurant?: Restaurant | null }, token: string): Promise<SentEmailInfo> {
     const resetLink = `${this.appBaseUrl}/reset-password?token=${encodeURIComponent(token)}`;
     const restaurantName = user.restaurant?.name?.trim() || "your restaurant";
-    const response = await this.resend.emails.send({
-      from: this.from,
-      to: user.email,
-      subject: "Reset your Dishpatch password",
-      html: `
-        <div style="font-family: Arial, sans-serif; color: #111827; line-height: 1.5;">
-          <h2 style="margin: 0 0 12px;">Reset your password</h2>
-          <p style="margin: 0 0 12px;">We received a request to reset the Dishpatch password for ${escapeHtml(restaurantName)}.</p>
-          <p style="margin: 0 0 12px;">Use the link below to choose a new password. This link expires in ${escapeHtml(
-            env.auth.resetPasswordTokenTtlMinutes.toString()
-          )} minutes.</p>
-          <p style="margin: 0 0 12px;"><a href="${escapeHtml(resetLink)}">${escapeHtml(resetLink)}</a></p>
-          <p style="margin: 0;">If you did not request this, you can ignore this email.</p>
-        </div>
-      `
-    });
+    const response = await withTimeout(
+      this.resend.emails.send({
+        from: this.from,
+        to: user.email,
+        subject: "Reset your Dishpatch password",
+        html: `
+          <div style="font-family: Arial, sans-serif; color: #111827; line-height: 1.5;">
+            <h2 style="margin: 0 0 12px;">Reset your password</h2>
+            <p style="margin: 0 0 12px;">We received a request to reset the Dishpatch password for ${escapeHtml(restaurantName)}.</p>
+            <p style="margin: 0 0 12px;">Use the link below to choose a new password. This link expires in ${escapeHtml(
+              env.auth.resetPasswordTokenTtlMinutes.toString()
+            )} minutes.</p>
+            <p style="margin: 0 0 12px;"><a href="${escapeHtml(resetLink)}">${escapeHtml(resetLink)}</a></p>
+            <p style="margin: 0;">If you did not request this, you can ignore this email.</p>
+          </div>
+        `
+      })
+    );
 
     return {
       recipient: user.email,

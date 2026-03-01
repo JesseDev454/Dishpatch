@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { JsonWebTokenError, TokenExpiredError } from "jsonwebtoken";
 import { z } from "zod";
+import { env } from "../config/env";
 import { AppDataSource } from "../config/data-source";
 import { Restaurant } from "../entities/Restaurant";
 import { User } from "../entities/User";
@@ -59,12 +60,17 @@ const forgotPasswordResponse = {
   message: "If an account exists for that email, a reset link has been sent."
 } as const;
 
-const createAuthStepLogger = (flow: "register" | "login") => {
+const createAuthStepLogger = (flow: "register" | "login", requestId?: string) => {
   const startedAt = process.hrtime.bigint();
 
   const logStep = (step: string): void => {
+    if (env.nodeEnv === "test") {
+      return;
+    }
+
     const elapsedMs = Number((process.hrtime.bigint() - startedAt) / BigInt(1_000_000));
-    console.log(`[auth.${flow}] +${elapsedMs}ms ${step}`);
+    const requestLabel = requestId ? `[${requestId}] ` : "";
+    console.log(`${requestLabel}[auth.${flow}] +${elapsedMs}ms ${step}`);
   };
 
   return {
@@ -72,8 +78,13 @@ const createAuthStepLogger = (flow: "register" | "login") => {
   };
 };
 
-const logRefreshFailure = (reason: string): void => {
-  console.warn(`[auth.refresh] failed: ${reason}`);
+const logRefreshFailure = (reason: string, requestId?: string): void => {
+  if (env.nodeEnv === "test") {
+    return;
+  }
+
+  const requestLabel = requestId ? `[${requestId}] ` : "";
+  console.warn(`${requestLabel}[auth.refresh] failed: ${reason}`);
 };
 
 const passwordResetEmailService = process.env.NODE_ENV === "test" ? null : new EmailService();
@@ -123,7 +134,7 @@ const getUniqueSlug = async (
 };
 
 router.post("/register", async (req, res, next) => {
-  const { logStep } = createAuthStepLogger("register");
+  const { logStep } = createAuthStepLogger("register", req.requestId);
   logStep("start request");
 
   try {
@@ -193,7 +204,7 @@ router.post("/register", async (req, res, next) => {
 });
 
 router.post("/login", async (req, res, next) => {
-  const { logStep } = createAuthStepLogger("login");
+  const { logStep } = createAuthStepLogger("login", req.requestId);
   logStep("start request");
 
   try {
@@ -244,7 +255,7 @@ router.post("/refresh", async (req, res, next) => {
     const token = (req.cookies?.refreshToken as string | undefined) ?? parsed.refreshToken;
 
     if (!token) {
-      logRefreshFailure("missing_token");
+      logRefreshFailure("missing_token", req.requestId);
       throw new HttpError(401, "Unauthorized");
     }
 
@@ -253,17 +264,17 @@ router.post("/refresh", async (req, res, next) => {
       payload = verifyRefreshToken(token);
     } catch (error) {
       if (error instanceof TokenExpiredError) {
-        logRefreshFailure("expired_token");
+        logRefreshFailure("expired_token", req.requestId);
       } else if (error instanceof JsonWebTokenError) {
-        logRefreshFailure("invalid_token");
+        logRefreshFailure("invalid_token", req.requestId);
       } else {
-        logRefreshFailure("token_verification_error");
+        logRefreshFailure("token_verification_error", req.requestId);
       }
       throw new HttpError(401, "Unauthorized");
     }
 
     if (payload.type !== "refresh") {
-      logRefreshFailure("invalid_token_type");
+      logRefreshFailure("invalid_token_type", req.requestId);
       throw new HttpError(401, "Unauthorized");
     }
 
@@ -274,7 +285,7 @@ router.post("/refresh", async (req, res, next) => {
     });
 
     if (!user) {
-      logRefreshFailure("user_not_found");
+      logRefreshFailure("user_not_found", req.requestId);
       throw new HttpError(401, "Unauthorized");
     }
 

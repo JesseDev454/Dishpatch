@@ -10,7 +10,7 @@ import { getApiErrorMessage } from "../lib/errors";
 
 export const RegisterPage = () => {
   const navigate = useNavigate();
-  const { register, user, loading } = useAuth();
+  const { register, user, loading, bootstrapNotice } = useAuth();
   const { showToast } = useToast();
   const [restaurantName, setRestaurantName] = useState("");
   const [email, setEmail] = useState("");
@@ -74,6 +74,11 @@ export const RegisterPage = () => {
           placeholder="Minimum 8 characters"
           autoComplete="new-password"
         />
+        {bootstrapNotice ? (
+          <div className="rounded-lg border border-warning-500/35 bg-warning-500/10 px-3 py-2 text-sm font-medium text-warning-100">
+            {bootstrapNotice}
+          </div>
+        ) : null}
         {error ? (
           <div className="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm font-medium text-destructive">
             {error}

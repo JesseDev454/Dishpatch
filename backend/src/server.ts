@@ -3,7 +3,7 @@ import { env } from "./config/env";
 import { createApp } from "./app";
 import { createServer } from "http";
 import { createRealtimeServer } from "./realtime/socket";
-import { startOrderExpiryJob } from "./jobs/order-expiry-job";
+import { startExpiryJob } from "./jobs/order-expiry-job";
 import { getCoreSchemaRegclass, getCurrentDatabaseName, getMissingCoreTables } from "./utils/schema-sanity";
 
 const formatMigrationNames = (migrations: { name?: string }[]): string => {
@@ -44,6 +44,12 @@ const ensureCoreSchemaReady = async (): Promise<void> => {
 const bootstrap = async () => {
   await AppDataSource.initialize();
   const currentDatabase = await getCurrentDatabaseName(AppDataSource);
+  const backendVersion = process.env.npm_package_version ?? "unknown";
+  const backendCommit =
+    process.env.RENDER_GIT_COMMIT?.slice(0, 7) ??
+    process.env.SOURCE_VERSION?.slice(0, 7) ??
+    process.env.COMMIT_SHA?.slice(0, 7) ??
+    "unknown";
   const databaseHost = (() => {
     try {
       return new URL(env.db.databaseUrl).hostname;
@@ -52,6 +58,8 @@ const bootstrap = async () => {
     }
   })();
 
+  console.log(`[startup] Environment: ${env.nodeEnv}`);
+  console.log(`[startup] Backend version: ${backendVersion} (${backendCommit})`);
   console.log(`[startup] Connected database: ${currentDatabase}`);
   console.log(`[startup] Database host: ${databaseHost}`);
   if (env.nodeEnv === "production" && databaseHost.includes("neon.tech") && !databaseHost.includes("-pooler")) {
@@ -63,7 +71,7 @@ const bootstrap = async () => {
   const app = createApp();
   const httpServer = createServer(app);
   createRealtimeServer(httpServer);
-  startOrderExpiryJob(AppDataSource);
+  startExpiryJob(AppDataSource);
   console.log("[startup] Order expiry job started.");
 
   httpServer.listen(env.port, () => {

@@ -329,6 +329,7 @@ Notes:
 - `start:render` runs migrations before starting the server.
 - CORS and Socket.IO origin checks use `FRONTEND_URL`.
 - In production, missing `RESET_PASSWORD_TOKEN_SECRET` disables forgot-password/reset-password routes, but does not block startup or migrations.
+- `/debug/schema` stays available for connection verification and requires auth in production.
 
 ### 3) Vercel (Frontend)
 Create a Vercel project for `frontend` only:

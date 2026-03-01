@@ -65,13 +65,35 @@ export const startOrderExpiryJob = (dataSource: DataSource = AppDataSource): Nod
   }
 
   const intervalMs = env.orders.expiryJobIntervalSeconds * 1000;
+  const maxBackoffMs = Math.max(intervalMs, 5 * 60 * 1000);
+  let timer: NodeJS.Timeout | undefined;
+  let consecutiveFailures = 0;
 
-  const run = () => {
-    void runExpirySweepOnce(dataSource).catch((error) => {
-      console.error("Order expiry sweep failed", error);
-    });
+  const scheduleNextRun = (delayMs: number): void => {
+    timer = setTimeout(() => {
+      void run();
+    }, delayMs);
   };
 
-  const timer = setInterval(run, intervalMs);
+  const run = async (): Promise<void> => {
+    try {
+      await runExpirySweepOnce(dataSource);
+      consecutiveFailures = 0;
+      scheduleNextRun(intervalMs);
+    } catch (error) {
+      consecutiveFailures += 1;
+      const backoffMs = Math.min(intervalMs * 2 ** Math.min(consecutiveFailures, 5), maxBackoffMs);
+      console.error(`Order expiry sweep failed. Retrying in ${backoffMs}ms.`, error);
+      scheduleNextRun(backoffMs);
+    }
+  };
+
+  scheduleNextRun(intervalMs);
+  if (!timer) {
+    throw new Error("Failed to schedule order expiry job.");
+  }
+
   return timer;
 };
+
+export const startExpiryJob = startOrderExpiryJob;

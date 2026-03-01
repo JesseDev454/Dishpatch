@@ -1,4 +1,5 @@
 import axios, { AxiosError, InternalAxiosRequestConfig } from "axios";
+import { toast } from "sonner";
 import type { AuthUser } from "../types";
 
 const normalizeUrl = (value: string): string => value.replace(/\/$/, "");
@@ -72,6 +73,7 @@ type RetriableRequestConfig = InternalAxiosRequestConfig & {
 };
 
 let refreshPromise: Promise<RefreshSessionResponse> | null = null;
+let sessionExpiredToastShown = false;
 
 const isAuthRoute = (url: string | undefined): boolean => {
   if (!url) {
@@ -86,16 +88,27 @@ const clearStoredSession = (): void => {
   setRefreshToken(null);
 };
 
+const showSessionExpiredToast = (): void => {
+  if (sessionExpiredToastShown) {
+    return;
+  }
+
+  sessionExpiredToastShown = true;
+  toast("Session expired, please login.", { duration: 2600 });
+};
+
 const redirectToLoginIfProtected = (): void => {
   if (!window.location.pathname.startsWith("/dashboard")) {
     return;
   }
 
+  showSessionExpiredToast();
   window.location.replace("/login");
 };
 
 export const setAccessToken = (token: string | null): void => {
   if (token) {
+    sessionExpiredToastShown = false;
     api.defaults.headers.common.Authorization = `Bearer ${token}`;
     localStorage.setItem(ACCESS_TOKEN_STORAGE_KEY, token);
   } else {

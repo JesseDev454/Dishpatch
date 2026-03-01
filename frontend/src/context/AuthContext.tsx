@@ -1,7 +1,8 @@
 import { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
-import { api, getStoredAccessToken, refreshAuthSession, setAccessToken, setRefreshToken } from "../lib/api";
+import { api, getStoredAccessToken, getStoredRefreshToken, refreshAuthSession, setAccessToken, setRefreshToken } from "../lib/api";
 import { getApiStatus, isApiNetworkError } from "../lib/errors";
 import { AuthUser } from "../types";
+import { useToast } from "./ToastContext";
 
 type RegisterInput = {
   restaurantName: string;
@@ -26,7 +27,7 @@ type AuthContextValue = {
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
-const BOOTSTRAP_RETRY_NOTICE = "Backend is waking up / network issue. Retrying...";
+const BOOTSTRAP_RETRY_NOTICE = "Connecting to server...";
 const INITIAL_RETRY_DELAY_MS = 1_000;
 const MAX_RETRY_DELAY_MS = 20_000;
 
@@ -56,6 +57,7 @@ const isTransientBootstrapError = (error: unknown): boolean => {
 };
 
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
+  const { showToast } = useToast();
   const [user, setUser] = useState<AuthUser | null>(null);
   const [loading, setLoading] = useState(true);
   const [bootstrapNotice, setBootstrapNotice] = useState<string | null>(null);
@@ -102,6 +104,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
     const bootstrap = async () => {
       const existingToken = getStoredAccessToken();
+      const existingRefreshToken = getStoredRefreshToken();
+      const hadPersistedSession = Boolean(existingToken || existingRefreshToken);
       if (existingToken) {
         setAccessToken(existingToken);
       }
@@ -120,6 +124,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         }
 
         if (outcome === "unauthorized") {
+          if (hadPersistedSession) {
+            showToast("Session expired, please login.", "info");
+          }
           setAccessToken(null);
           setRefreshToken(null);
           setUser(null);
@@ -139,7 +146,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     return () => {
       bootstrapCancelledRef.current = true;
     };
-  }, []);
+  }, [showToast]);
 
   const login = async (input: LoginInput) => {
     const res = await api.post<{ accessToken: string; refreshToken: string; user: AuthUser }>("/auth/login", input);

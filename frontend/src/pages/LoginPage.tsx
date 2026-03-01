@@ -10,7 +10,7 @@ import { getApiErrorMessage } from "../lib/errors";
 
 export const LoginPage = () => {
   const navigate = useNavigate();
-  const { login, user, loading } = useAuth();
+  const { login, user, loading, bootstrapNotice } = useAuth();
   const { showToast } = useToast();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -70,6 +70,11 @@ export const LoginPage = () => {
             Forgot password?
           </Link>
         </div>
+        {bootstrapNotice ? (
+          <div className="rounded-lg border border-warning-500/35 bg-warning-500/10 px-3 py-2 text-sm font-medium text-warning-100">
+            {bootstrapNotice}
+          </div>
+        ) : null}
         {error ? (
           <div className="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm font-medium text-destructive">
             {error}

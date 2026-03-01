@@ -1,5 +1,5 @@
 import "reflect-metadata";
-import express from "express";
+import express, { NextFunction, Request, Response } from "express";
 import cors from "cors";
 import helmet from "helmet";
 import cookieParser from "cookie-parser";
@@ -7,6 +7,7 @@ import { env } from "./config/env";
 import apiRoutes from "./routes";
 import { errorHandler } from "./middleware/error-handler";
 import { requestTiming } from "./middleware/request-timing";
+import { requireAuth } from "./middleware/auth";
 import { AppDataSource } from "./config/data-source";
 import { getCoreSchemaCounts, getCoreSchemaRegclass, getCurrentDatabaseName } from "./utils/schema-sanity";
 
@@ -49,7 +50,7 @@ export const createApp = () => {
     res.json({ ok: true });
   });
 
-  app.get("/debug/schema", async (_req, res, next) => {
+  const debugSchemaHandler = async (_req: Request, res: Response, next: NextFunction) => {
     try {
       if (!AppDataSource.isInitialized) {
         res.status(503).json({ message: "Database not initialized" });
@@ -71,7 +72,13 @@ export const createApp = () => {
     } catch (error) {
       next(error);
     }
-  });
+  };
+
+  if (env.nodeEnv === "production") {
+    app.get("/debug/schema", requireAuth, debugSchemaHandler);
+  } else {
+    app.get("/debug/schema", debugSchemaHandler);
+  }
 
   app.use("/", apiRoutes);
   app.use(errorHandler);

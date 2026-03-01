@@ -12,7 +12,7 @@ export class HttpError extends Error {
 
 export const errorHandler = (
   error: unknown,
-  _req: Request,
+  req: Request,
   res: Response,
   _next: NextFunction
 ): void => {
@@ -27,6 +27,7 @@ export const errorHandler = (
     return;
   }
 
-  console.error(error);
+  const requestLabel = req.requestId ? `[${req.requestId}] ` : "";
+  console.error(`${requestLabel}Unhandled request error`, error);
   res.status(500).json({ message: "Internal server error" });
 };

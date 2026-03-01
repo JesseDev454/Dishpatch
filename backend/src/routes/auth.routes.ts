@@ -4,8 +4,19 @@ import { z } from "zod";
 import { AppDataSource } from "../config/data-source";
 import { Restaurant } from "../entities/Restaurant";
 import { User } from "../entities/User";
+import { enqueueAsyncJob } from "../jobs/async-jobs";
 import { HttpError } from "../middleware/error-handler";
+import { EmailService } from "../services/email.service";
 import { comparePassword, hashPassword } from "../utils/password";
+import {
+  createPasswordResetToken,
+  hashPasswordResetToken,
+  isPasswordResetEmailRateLimited,
+  isPasswordResetIpRateLimited,
+  passwordResetTokenMatches,
+  recordPasswordResetEmailRequest,
+  recordPasswordResetIpRequest
+} from "../utils/password-reset";
 import {
   clearRefreshCookie,
   generateAccessToken,
@@ -33,6 +44,20 @@ const refreshSchema = z.object({
   refreshToken: z.string().min(1).optional()
 });
 
+const forgotPasswordSchema = z.object({
+  email: z.string().email("Valid email is required")
+});
+
+const resetPasswordSchema = z.object({
+  token: z.string().trim().min(1, "Reset token is required"),
+  password: z.string().min(8, "Password must be at least 8 characters")
+});
+
+const forgotPasswordResponse = {
+  ok: true,
+  message: "If an account exists for that email, a reset link has been sent."
+} as const;
+
 const createAuthStepLogger = (flow: "register" | "login") => {
   const startedAt = process.hrtime.bigint();
 
@@ -49,6 +74,8 @@ const createAuthStepLogger = (flow: "register" | "login") => {
 const logRefreshFailure = (reason: string): void => {
   console.warn(`[auth.refresh] failed: ${reason}`);
 };
+
+const passwordResetEmailService = process.env.NODE_ENV === "test" ? null : new EmailService();
 
 const userSafe = (user: User) => ({
   id: user.id,
@@ -263,6 +290,89 @@ router.post("/refresh", async (req, res, next) => {
 router.post("/logout", (_req, res) => {
   clearRefreshCookie(res);
   res.status(204).send();
+});
+
+router.post("/forgot-password", async (req, res, next) => {
+  try {
+    const parsed = forgotPasswordSchema.parse(req.body);
+    const normalizedEmail = parsed.email.toLowerCase();
+    const userRepo = AppDataSource.getRepository(User);
+    const emailRateLimited = isPasswordResetEmailRateLimited(normalizedEmail);
+    const ipRateLimited = isPasswordResetIpRateLimited(req.ip);
+
+    const user = await userRepo.findOne({
+      where: { email: normalizedEmail },
+      relations: { restaurant: true }
+    });
+
+    if (!emailRateLimited && !ipRateLimited) {
+      recordPasswordResetEmailRequest(normalizedEmail);
+      recordPasswordResetIpRequest(req.ip);
+    }
+
+    if (user && !emailRateLimited && !ipRateLimited) {
+      const { token, tokenHash, expiresAt } = createPasswordResetToken();
+      const now = new Date();
+
+      user.passwordResetTokenHash = tokenHash;
+      user.passwordResetTokenExpiresAt = expiresAt;
+      user.passwordResetRequestedAt = now;
+      user.passwordResetUsedAt = null;
+      await userRepo.save(user);
+
+      if (passwordResetEmailService) {
+        enqueueAsyncJob(async () => {
+          try {
+            await passwordResetEmailService.sendPasswordResetEmail(user, token);
+          } catch (error) {
+            console.error(`[auth.forgot-password] failed to send reset email for ${normalizedEmail}`, error);
+          }
+        });
+      }
+    }
+
+    res.status(200).json(forgotPasswordResponse);
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.post("/reset-password", async (req, res, next) => {
+  try {
+    const parsed = resetPasswordSchema.parse(req.body);
+    const userRepo = AppDataSource.getRepository(User);
+    const tokenHash = hashPasswordResetToken(parsed.token);
+    const user = await userRepo.findOne({
+      where: {
+        passwordResetTokenHash: tokenHash
+      }
+    });
+
+    if (!user || !user.passwordResetTokenHash || !passwordResetTokenMatches(user.passwordResetTokenHash, parsed.token)) {
+      throw new HttpError(400, "Reset token is invalid or expired");
+    }
+
+    const now = new Date();
+    if (!user.passwordResetTokenExpiresAt || user.passwordResetTokenExpiresAt <= now || user.passwordResetUsedAt) {
+      throw new HttpError(400, "Reset token is invalid or expired");
+    }
+
+    const nextPasswordHash = await hashPassword(parsed.password);
+    user.passwordHash = nextPasswordHash;
+    user.passwordResetTokenHash = null;
+    user.passwordResetTokenExpiresAt = null;
+    user.passwordResetRequestedAt = null;
+    user.passwordResetUsedAt = now;
+    await userRepo.save(user);
+
+    clearRefreshCookie(res);
+    res.status(200).json({
+      ok: true,
+      message: "Password has been reset successfully."
+    });
+  } catch (error) {
+    next(error);
+  }
 });
 
 router.get("/me", requireAuth, async (req, res, next) => {

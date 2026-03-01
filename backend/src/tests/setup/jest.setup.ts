@@ -1,5 +1,6 @@
 import { AppDataSource } from "../../config/data-source";
 import { waitForAsyncJobs } from "../../jobs/async-jobs";
+import { clearPasswordResetIpRateLimiter } from "../../utils/password-reset";
 
 const appTables = ["payments", "order_items", "orders", "items", "categories", "users", "restaurants"] as const;
 
@@ -15,6 +16,7 @@ beforeAll(async () => {
 });
 
 beforeEach(async () => {
+  clearPasswordResetIpRateLimiter();
   await clearDatabase();
 });
 

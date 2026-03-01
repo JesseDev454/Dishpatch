@@ -71,6 +71,8 @@ const expiryMinutes = isTest ? Math.max(configuredExpiryMinutes, 30) : configure
 const bcryptSaltRounds = parsePositiveInt(process.env.BCRYPT_SALT_ROUNDS, 10);
 const dbConnectTimeoutMs = parsePositiveInt(process.env.DB_CONNECT_TIMEOUT_MS, 10_000);
 const dbPoolMax = parsePositiveInt(process.env.DB_POOL_MAX, 10);
+const resetPasswordTokenTtlMinutes = parsePositiveInt(process.env.RESET_PASSWORD_TOKEN_TTL_MINUTES, 30);
+const resetPasswordRequestLimitPerHour = parsePositiveInt(process.env.RESET_PASSWORD_REQUEST_LIMIT_PER_HOUR, 5);
 
 export const env = {
   nodeEnv,
@@ -83,7 +85,10 @@ export const env = {
     poolMax: dbPoolMax
   },
   auth: {
-    bcryptSaltRounds
+    bcryptSaltRounds,
+    resetPasswordTokenTtlMinutes,
+    resetPasswordRequestLimitPerHour,
+    resetPasswordTokenSecret: getValue(["RESET_PASSWORD_TOKEN_SECRET"], "dev_reset_password_token_secret_change_me")
   },
   jwt: {
     accessSecret: getValue(["JWT_ACCESS_SECRET"], "dev_access_secret_change_me"),

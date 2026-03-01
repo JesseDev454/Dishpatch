@@ -4,6 +4,7 @@ import { Order } from "../entities/Order";
 import { Payment } from "../entities/Payment";
 import { Restaurant } from "../entities/Restaurant";
 import { OrderItem } from "../entities/OrderItem";
+import { User } from "../entities/User";
 
 export type SentEmailInfo = {
   recipient: string;
@@ -158,6 +159,32 @@ export class EmailService {
 
     return {
       recipient: this.restaurantNotificationTo,
+      messageId: extractMessageId(response)
+    };
+  }
+
+  async sendPasswordResetEmail(user: User & { restaurant?: Restaurant | null }, token: string): Promise<SentEmailInfo> {
+    const resetLink = `${this.appBaseUrl}/reset-password?token=${encodeURIComponent(token)}`;
+    const restaurantName = user.restaurant?.name?.trim() || "your restaurant";
+    const response = await this.resend.emails.send({
+      from: this.from,
+      to: user.email,
+      subject: "Reset your Dishpatch password",
+      html: `
+        <div style="font-family: Arial, sans-serif; color: #111827; line-height: 1.5;">
+          <h2 style="margin: 0 0 12px;">Reset your password</h2>
+          <p style="margin: 0 0 12px;">We received a request to reset the Dishpatch password for ${escapeHtml(restaurantName)}.</p>
+          <p style="margin: 0 0 12px;">Use the link below to choose a new password. This link expires in ${escapeHtml(
+            env.auth.resetPasswordTokenTtlMinutes.toString()
+          )} minutes.</p>
+          <p style="margin: 0 0 12px;"><a href="${escapeHtml(resetLink)}">${escapeHtml(resetLink)}</a></p>
+          <p style="margin: 0;">If you did not request this, you can ignore this email.</p>
+        </div>
+      `
+    });
+
+    return {
+      recipient: user.email,
       messageId: extractMessageId(response)
     };
   }

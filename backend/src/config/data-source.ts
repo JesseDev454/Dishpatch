@@ -17,6 +17,7 @@ import { AddItemImageUrl1709200000000 } from "../migrations/1709200000000-AddIte
 import { AddAnalyticsOrderIndexes1709300000000 } from "../migrations/1709300000000-AddAnalyticsOrderIndexes";
 import { TransferFirstPivot1709400000000 } from "../migrations/1709400000000-TransferFirstPivot";
 import { EnsureCoreSchema1709500000000 } from "../migrations/1709500000000-EnsureCoreSchema";
+import { AddPasswordResetFieldsToUser1709600000000 } from "../migrations/1709600000000-AddPasswordResetFieldsToUser";
 
 export const AppDataSource = new DataSource({
   type: "postgres",
@@ -38,7 +39,8 @@ export const AppDataSource = new DataSource({
     AddItemImageUrl1709200000000,
     AddAnalyticsOrderIndexes1709300000000,
     TransferFirstPivot1709400000000,
-    EnsureCoreSchema1709500000000
+    EnsureCoreSchema1709500000000,
+    AddPasswordResetFieldsToUser1709600000000
   ],
   synchronize: false,
   logging: false

@@ -268,6 +268,9 @@ Set in `backend/.env`:
 - `RESEND_API_KEY`
 - `EMAIL_FROM`
 - `APP_BASE_URL` (default `http://localhost:5173`)
+- `RESET_PASSWORD_TOKEN_TTL_MINUTES` (default `30`)
+- `RESET_PASSWORD_REQUEST_LIMIT_PER_HOUR` (default `5`)
+- `RESET_PASSWORD_TOKEN_SECRET`
 - `CLOUDINARY_CLOUD_NAME`
 - `CLOUDINARY_API_KEY`
 - `CLOUDINARY_API_SECRET`
@@ -309,6 +312,9 @@ PAYSTACK_BASE_URL=https://api.paystack.co
 RESEND_API_KEY=re_...
 EMAIL_FROM="Dishpatch <onboarding@resend.dev>"
 APP_BASE_URL=https://dishpatch.vercel.app
+RESET_PASSWORD_TOKEN_TTL_MINUTES=30
+RESET_PASSWORD_REQUEST_LIMIT_PER_HOUR=5
+RESET_PASSWORD_TOKEN_SECRET=<strong-random-secret>
 CLOUDINARY_CLOUD_NAME=<cloudinary-cloud-name>
 CLOUDINARY_API_KEY=<cloudinary-api-key>
 CLOUDINARY_API_SECRET=<cloudinary-api-secret>

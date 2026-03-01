@@ -6,6 +6,8 @@ import { PageLoader } from "./components/ui/PageLoader";
 const LandingPage = lazy(() => import("./pages/LandingPage").then((mod) => ({ default: mod.LandingPage })));
 const LoginPage = lazy(() => import("./pages/LoginPage").then((mod) => ({ default: mod.LoginPage })));
 const RegisterPage = lazy(() => import("./pages/RegisterPage").then((mod) => ({ default: mod.RegisterPage })));
+const ForgotPasswordPage = lazy(() => import("./pages/ForgotPasswordPage").then((mod) => ({ default: mod.ForgotPasswordPage })));
+const ResetPasswordPage = lazy(() => import("./pages/ResetPasswordPage").then((mod) => ({ default: mod.ResetPasswordPage })));
 const DashboardPage = lazy(() => import("./pages/DashboardPage").then((mod) => ({ default: mod.DashboardPage })));
 const PublicOrderPage = lazy(() => import("./pages/PublicOrderPage").then((mod) => ({ default: mod.PublicOrderPage })));
 const OrderTrackingPage = lazy(() => import("./pages/OrderTrackingPage").then((mod) => ({ default: mod.OrderTrackingPage })));
@@ -18,7 +20,11 @@ const DashboardAnalyticsPage = lazy(() =>
 export default function App() {
   const location = useLocation();
   const themeClass =
-    location.pathname.startsWith("/dashboard") || location.pathname === "/login" || location.pathname === "/register"
+    location.pathname.startsWith("/dashboard") ||
+    location.pathname === "/login" ||
+    location.pathname === "/register" ||
+    location.pathname === "/forgot-password" ||
+    location.pathname === "/reset-password"
       ? "theme-admin"
       : "theme-customer";
 
@@ -36,6 +42,8 @@ export default function App() {
           <Route path="/" element={<LandingPage />} />
           <Route path="/register" element={<RegisterPage />} />
           <Route path="/login" element={<LoginPage />} />
+          <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+          <Route path="/reset-password" element={<ResetPasswordPage />} />
           <Route path="/r/:slug" element={<PublicOrderPage />} />
           <Route path="/track/:orderId" element={<OrderTrackingPage />} />
           <Route path="/receipt/:reference" element={<ReceiptPage />} />

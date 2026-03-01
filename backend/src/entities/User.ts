@@ -28,6 +28,18 @@ export class User {
   @Column({ type: "varchar", length: 255 })
   passwordHash!: string;
 
+  @Column({ type: "varchar", length: 64, nullable: true })
+  passwordResetTokenHash!: string | null;
+
+  @Column({ type: "timestamptz", nullable: true })
+  passwordResetTokenExpiresAt!: Date | null;
+
+  @Column({ type: "timestamptz", nullable: true })
+  passwordResetRequestedAt!: Date | null;
+
+  @Column({ type: "timestamptz", nullable: true })
+  passwordResetUsedAt!: Date | null;
+
   @Column({ type: "enum", enum: ["ADMIN"], default: "ADMIN" })
   role!: UserRole;
 

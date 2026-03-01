@@ -188,10 +188,17 @@ export class EnsureCoreSchema1709500000000 implements MigrationInterface {
     await queryRunner.query(`ALTER TABLE "payments" ADD COLUMN IF NOT EXISTS "customerReceiptEmailSentAt" timestamptz`);
     await queryRunner.query(`ALTER TABLE "payments" ADD COLUMN IF NOT EXISTS "restaurantNotificationEmailMessageId" varchar(190)`);
     await queryRunner.query(`ALTER TABLE "payments" ADD COLUMN IF NOT EXISTS "restaurantNotificationEmailSentAt" timestamptz`);
+    await queryRunner.query(`ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "passwordResetTokenHash" varchar(64)`);
+    await queryRunner.query(`ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "passwordResetTokenExpiresAt" timestamptz`);
+    await queryRunner.query(`ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "passwordResetRequestedAt" timestamptz`);
+    await queryRunner.query(`ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "passwordResetUsedAt" timestamptz`);
 
     await queryRunner.query(`CREATE UNIQUE INDEX IF NOT EXISTS "IDX_restaurants_slug" ON "restaurants" ("slug")`);
     await queryRunner.query(`CREATE INDEX IF NOT EXISTS "IDX_users_restaurantId" ON "users" ("restaurantId")`);
     await queryRunner.query(`CREATE UNIQUE INDEX IF NOT EXISTS "IDX_users_email" ON "users" ("email")`);
+    await queryRunner.query(
+      `CREATE INDEX IF NOT EXISTS "IDX_users_passwordResetTokenHash" ON "users" ("passwordResetTokenHash") WHERE "passwordResetTokenHash" IS NOT NULL`
+    );
     await queryRunner.query(`CREATE INDEX IF NOT EXISTS "IDX_categories_restaurantId" ON "categories" ("restaurantId")`);
     await queryRunner.query(`CREATE INDEX IF NOT EXISTS "IDX_items_restaurantId" ON "items" ("restaurantId")`);
     await queryRunner.query(`CREATE INDEX IF NOT EXISTS "IDX_items_categoryId" ON "items" ("categoryId")`);

@@ -1,6 +1,7 @@
 import request from "supertest";
 import { createApp } from "../../app";
 import { AppDataSource } from "../../config/data-source";
+import { env } from "../../config/env";
 import { Restaurant } from "../../entities/Restaurant";
 import { User } from "../../entities/User";
 import { createPasswordResetToken } from "../../utils/password-reset";
@@ -101,6 +102,28 @@ describe("Auth", () => {
       ok: true,
       message: "If an account exists for that email, a reset link has been sent."
     });
+  });
+
+  it("disables password reset endpoints when the reset secret is missing", async () => {
+    const originalSecret = env.auth.resetPasswordTokenSecret;
+    env.auth.resetPasswordTokenSecret = null;
+
+    try {
+      const forgotPasswordResponse = await request(app).post("/auth/forgot-password").send({
+        email: "missing@dishpatch.test"
+      });
+      expect(forgotPasswordResponse.status).toBe(500);
+      expect(forgotPasswordResponse.body.message).toBe("Password reset not configured");
+
+      const resetPasswordResponse = await request(app).post("/auth/reset-password").send({
+        token: "placeholder-token",
+        password: "NewStrongPass456"
+      });
+      expect(resetPasswordResponse.status).toBe(500);
+      expect(resetPasswordResponse.body.message).toBe("Password reset not configured");
+    } finally {
+      env.auth.resetPasswordTokenSecret = originalSecret;
+    }
   });
 
   it("forgot password stores reset metadata for an existing user", async () => {

@@ -11,6 +11,7 @@ import { comparePassword, hashPassword } from "../utils/password";
 import {
   createPasswordResetToken,
   hashPasswordResetToken,
+  isPasswordResetConfigured,
   isPasswordResetEmailRateLimited,
   isPasswordResetIpRateLimited,
   passwordResetTokenMatches,
@@ -76,6 +77,12 @@ const logRefreshFailure = (reason: string): void => {
 };
 
 const passwordResetEmailService = process.env.NODE_ENV === "test" ? null : new EmailService();
+
+const ensurePasswordResetConfigured = (): void => {
+  if (!isPasswordResetConfigured()) {
+    throw new HttpError(500, "Password reset not configured");
+  }
+};
 
 const userSafe = (user: User) => ({
   id: user.id,
@@ -294,6 +301,7 @@ router.post("/logout", (_req, res) => {
 
 router.post("/forgot-password", async (req, res, next) => {
   try {
+    ensurePasswordResetConfigured();
     const parsed = forgotPasswordSchema.parse(req.body);
     const normalizedEmail = parsed.email.toLowerCase();
     const userRepo = AppDataSource.getRepository(User);
@@ -339,6 +347,7 @@ router.post("/forgot-password", async (req, res, next) => {
 
 router.post("/reset-password", async (req, res, next) => {
   try {
+    ensurePasswordResetConfigured();
     const parsed = resetPasswordSchema.parse(req.body);
     const userRepo = AppDataSource.getRepository(User);
     const tokenHash = hashPasswordResetToken(parsed.token);

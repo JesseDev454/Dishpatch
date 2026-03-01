@@ -25,8 +25,19 @@ const recordResetRequest = (timeline: Map<string, number[]>, key: string): void 
   timeline.set(key, recentTimestamps);
 };
 
+const getPasswordResetTokenSecret = (): string => {
+  const secret = env.auth.resetPasswordTokenSecret;
+  if (!secret) {
+    throw new Error("Password reset not configured");
+  }
+
+  return secret;
+};
+
+export const isPasswordResetConfigured = (): boolean => typeof env.auth.resetPasswordTokenSecret === "string" && env.auth.resetPasswordTokenSecret.length > 0;
+
 export const hashPasswordResetToken = (token: string): string =>
-  createHmac("sha256", env.auth.resetPasswordTokenSecret).update(token).digest("hex");
+  createHmac("sha256", getPasswordResetTokenSecret()).update(token).digest("hex");
 
 export const createPasswordResetToken = (): { token: string; tokenHash: string; expiresAt: Date } => {
   const token = randomBytes(RESET_TOKEN_BYTES).toString("base64url");
